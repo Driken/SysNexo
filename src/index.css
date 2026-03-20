@@ -87,7 +87,7 @@ a {
 
 /* Premium Card */
 .glass-card {
-  background: var(--bg-card);
+  background: hsl(var(--bg-card));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid hsl(var(--border-light));
@@ -119,6 +119,7 @@ a {
   font-size: 2.5rem;
   font-weight: 700;
   background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)));
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   text-align: center;
@@ -164,6 +165,11 @@ a {
   border-color: hsl(var(--border-focus));
   box-shadow: 0 0 0 3px hsla(var(--primary), 0.15);
   transform: translateY(-1px);
+}
+
+select.form-input option {
+  background: hsl(var(--bg-card));
+  color: hsl(var(--text-main));
 }
 
 .form-input::placeholder {
@@ -282,6 +288,11 @@ a {
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes pingando {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
 /* Layout helpers */
 .flex-row { display: flex; align-items: center; gap: 1rem; }
 .flex-col { display: flex; flex-direction: column; gap: 1rem; }
@@ -374,6 +385,21 @@ a {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.user-profile-sm:hover {
+  background: hsla(var(--primary), 0.15);
+  box-shadow: 0 4px 12px hsla(var(--primary), 0.1);
+  animation: pingando 0.8s ease-in-out infinite;
+}
+
+.user-profile-sm:active {
+  transform: scale(0.98);
 }
 
 .avatar-sm {
@@ -438,4 +464,15 @@ a {
   margin: 0 auto;
   width: 100%;
   animation: fadeIn 0.4s ease-out;
+}
+
+.pulse-filter {
+  animation: pulse-filter 2s infinite;
+  border-radius: 50% !important;
+}
+
+@keyframes pulse-filter {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0.4); }
+  70% { transform: scale(1.1); box-shadow: 0 0 0 10px hsla(var(--primary), 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0); }
 }

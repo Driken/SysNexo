@@ -4,9 +4,10 @@ import { supabase } from '../lib/supabase';
 import { UserCircle, Save } from 'lucide-react';
 
 export const MeusDados: React.FC = () => {
-  const { profile, updateProfile } = useAuth();
+  const { profile, updateProfile, session } = useAuth();
   
   const [fullName, setFullName] = useState('');
+  const [cpf, setCpf] = useState('');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -14,6 +15,9 @@ export const MeusDados: React.FC = () => {
   useEffect(() => {
     if (profile?.full_name && !profile.full_name.includes('-')) {
       setFullName(profile.full_name);
+    }
+    if (profile?.cpf) {
+      setCpf(profile.cpf);
     }
   }, [profile]);
 
@@ -26,14 +30,14 @@ export const MeusDados: React.FC = () => {
 
     const { error } = await supabase
       .from('profiles')
-      .update({ full_name: fullName })
+      .update({ full_name: fullName, cpf: cpf || null })
       .eq('id', profile.id);
 
     if (error) {
       setMessage('Erro ao tentar atualizar o perfil.');
       console.error(error);
     } else {
-      updateProfile({ full_name: fullName });
+      updateProfile({ full_name: fullName, cpf: cpf || undefined });
       setMessage('Perfil atualizado com sucesso!');
     }
     
@@ -70,6 +74,30 @@ export const MeusDados: React.FC = () => {
           </div>
 
           <div className="input-group">
+            <label className="input-label">CPF</label>
+            <input 
+              type="text" 
+              className="form-input" 
+              placeholder="000.000.000-00"
+              value={cpf}
+              onChange={(e) => setCpf(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <label className="input-label">Email de Acesso (Login)</label>
+            <input 
+              type="email" 
+              className="form-input" 
+              value={session?.user?.email || ''}
+              disabled
+              style={{ opacity: 0.7, cursor: 'not-allowed' }}
+              title="O email de acesso não pode ser alterado por aqui"
+            />
+          </div>
+
+          <div className="input-group">
             <label className="input-label">Cargo / Nível de Acesso (Gerenciado pelo Admin)</label>
             <input 
               type="text" 
@@ -94,7 +122,7 @@ export const MeusDados: React.FC = () => {
           )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-            <button type="submit" className="btn btn-primary" disabled={saving || !fullName} style={{ width: 'auto' }}>
+            <button type="submit" className="btn btn-primary" disabled={saving || !fullName || !cpf} style={{ width: 'auto' }}>
               <Save size={18} /> {saving ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>

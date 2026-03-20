@@ -5,6 +5,9 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { PacienteDetails } from './pages/PacienteDetails';
 import { MeusDados } from './pages/MeusDados';
+import { Usuarios } from './pages/Usuarios';
+import { Pacientes } from './pages/Pacientes';
+import { Prontuarios } from './pages/Prontuarios';
 import { Layout } from './components/Layout';
 
 function App() {
@@ -39,6 +42,36 @@ function App() {
               <PrivateRoute>
                 <Layout>
                   <MeusDados />
+                </Layout>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/usuarios" 
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Usuarios />
+                </Layout>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/pacientes" 
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Pacientes />
+                </Layout>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/prontuarios" 
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Prontuarios />
                 </Layout>
               </PrivateRoute>
             } 

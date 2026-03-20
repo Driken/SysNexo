@@ -17,6 +17,7 @@ create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   full_name text not null,
   role user_role default 'recepcao'::user_role not null,
+  cpf text unique,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
@@ -33,8 +34,13 @@ create policy "Usuários podem atualizar seu próprio perfil"
 create or replace function public.handle_new_user() 
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, role)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', 'Usuário ' || new.id), coalesce((new.raw_user_meta_data->>'role')::public.user_role, 'recepcao'::public.user_role));
+  insert into public.profiles (id, full_name, role, cpf)
+  values (
+    new.id, 
+    coalesce(new.raw_user_meta_data->>'full_name', 'Usuário ' || new.id), 
+    coalesce((new.raw_user_meta_data->>'role')::public.user_role, 'recepcao'::public.user_role),
+    new.raw_user_meta_data->>'cpf'
+  );
   return new;
 end;
 $$ language plpgsql security definer set search_path = public;
@@ -93,3 +99,30 @@ create policy "Apenas admin e o psicólogo dono podem editar notas"
       select 1 from profiles where id = auth.uid() and role = 'admin'
     ) or auth.uid() = psicologo_id
   );
+
+-- Criar ENUM para Status de Agendamento se não existir
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'agendamento_status') then
+    create type agendamento_status as enum ('Aguardando', 'Em Atendimento', 'Faltou', 'Finalizado', 'Agendado');
+  end if;
+end
+$$;
+
+-- Tabela Agendamentos
+create table if not exists public.agendamentos (
+  id uuid default gen_random_uuid() primary key,
+  paciente_id uuid references public.pacientes on delete cascade not null,
+  psicologo_id uuid references public.profiles on delete set null not null,
+  data_hora timestamp with time zone not null,
+  status agendamento_status default 'Agendado'::agendamento_status not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.agendamentos enable row level security;
+
+create policy "Todos os autenticados podem ver os agendamentos"
+  on agendamentos for select using (auth.role() = 'authenticated');
+
+create policy "Todos os autenticados podem inserir gerenciar agendamentos" 
+  on agendamentos for all using (auth.role() = 'authenticated');

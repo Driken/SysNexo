@@ -1,7 +1,8 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { User } from 'lucide-react';
 import { BuscaUniversal } from '../components/BuscaUniversal';
+import { FilaDeEspera } from '../components/FilaDeEspera';
+import { PainelPsicologo } from '../components/PainelPsicologo';
 
 export const Dashboard: React.FC = () => {
   const { profile } = useAuth();
@@ -19,29 +20,13 @@ export const Dashboard: React.FC = () => {
 
           <BuscaUniversal />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {profile?.role === 'recepcao' || profile?.role === 'admin' ? (
-              <div className="glass-card">
-                <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <User size={20} />
-                  Módulo de Recepção (Sprint 3)
-                </h3>
-                <p className="text-muted text-sm">
-                  Em breve: Histórico de datas, agendamentos e visualização simplificada sem dados sensíveis.
-                </p>
-              </div>
+              <FilaDeEspera />
             ) : null}
 
             {profile?.role === 'psicologo' || profile?.role === 'admin' ? (
-              <div className="glass-card">
-                <h3 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <User size={20} />
-                  Módulo do Psicólogo (Sprint 4)
-                </h3>
-                <p className="text-muted text-sm">
-                  Em breve: Prontuário, notas de evolução e histórico das sessões (sigilo garantido).
-                </p>
-              </div>
+              <PainelPsicologo />
             ) : null}
       </div>
     </div>

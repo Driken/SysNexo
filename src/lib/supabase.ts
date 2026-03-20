@@ -15,6 +15,7 @@ export interface Profile {
   id: string;
   full_name: string;
   role: UserRole;
+  cpf?: string;
   created_at: string;
 }
 
@@ -25,6 +26,19 @@ export interface Paciente {
   data_nascimento: string;
   cartao_sus: string | null;
   created_at: string;
+}
+
+export type AgendamentoStatus = 'Aguardando' | 'Em Atendimento' | 'Faltou' | 'Finalizado' | 'Agendado';
+
+export interface Agendamento {
+  id: string;
+  paciente_id: string;
+  psicologo_id: string;
+  data_hora: string;
+  status: AgendamentoStatus;
+  created_at: string;
+  paciente?: Paciente;
+  psicologo?: Profile;
 }
 
 export interface Atendimento {
