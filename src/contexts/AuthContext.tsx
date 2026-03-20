@@ -67,7 +67,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (!session) return;
+    
+    try {
+      // Usar scope: 'local' evita erros 500 no Supabase quando a sessão global está instável
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      console.error('Erro ao encerrar sessão:', error);
+    } finally {
+      // Forçamos a limpeza completa do estado local para garantir que a UI reflita o logout
+      setSession(null);
+      setProfile(null);
+      setLoading(false);
+    }
   };
 
   const updateProfile = (data: Partial<Profile>) => {
