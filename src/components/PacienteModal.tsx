@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { Paciente } from '../lib/supabase';
@@ -17,6 +17,8 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
   const [cartaoSus, setCartaoSus] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const modalContentRef = useRef<HTMLDivElement>(null);
+  const isMouseDownInside = useRef(false);
 
   if (!isOpen) return null;
 
@@ -79,8 +81,30 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 9999,
       backdropFilter: 'blur(4px)'
+    }}
+    onMouseDown={(e) => {
+      isMouseDownInside.current = modalContentRef.current?.contains(e.target as Node) || false;
+    }}
+    onMouseUp={(e) => {
+      if (e.target === e.currentTarget && !isMouseDownInside.current) {
+        onClose();
+      }
+      isMouseDownInside.current = false;
     }}>
-      <div className="glass-card" style={{ width: '100%', maxWidth: '500px', background: 'var(--bg-card)', color: 'hsl(var(--text-main))' }}>
+      <div 
+        ref={modalContentRef}
+        className="glass-card" 
+        style={{ 
+          width: '100%', 
+          maxWidth: '500px', 
+          maxHeight: '90vh', 
+          overflowY: 'auto', 
+          background: 'var(--bg-card)', 
+          color: 'hsl(var(--text-main))',
+          padding: '2rem',
+          margin: '2rem auto'
+        }}
+      >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h2>Novo Paciente</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>

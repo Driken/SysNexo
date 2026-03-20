@@ -11,9 +11,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
   
   // Caso o Supabase não tenha registrado um nome, ele usa "Usuário UUID", então tratamos isso na interface:
-  const displayName = profile?.full_name && profile.full_name.includes('-') 
-    ? 'Usuário Master' 
-    : profile?.full_name || 'Usuário';
+  const formatName = (name: string) => {
+    if (!name || name.includes('-')) return 'Usuário';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length <= 2) return name;
+    return `${parts[0]} ${parts[1]}`;
+  };
+
+  const displayName = profile?.full_name ? formatName(profile.full_name) : 'Usuário';
 
   useEffect(() => {
     if (isDarkMode) {
