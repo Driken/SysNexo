@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { UserPlus, Users, Shield, CheckCircle, Info, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UsuariosModal } from '../components/UsuariosModal';
+import { toast } from 'sonner';
 
 export const Usuarios: React.FC = () => {
   const { profile } = useAuth();
@@ -57,6 +58,10 @@ export const Usuarios: React.FC = () => {
   };
 
   const handleInativar = async (user: any) => {
+    if (user.role === 'paciente') {
+      toast.error('Pacientes não suportam inativação manual nesta lista.');
+      return;
+    }
     const novoStatus = !user.is_active;
     const confirmMsg = novoStatus ? `Deseja reativar o usuário ${user.full_name}?` : `Deseja inativar o usuário ${user.full_name}?`;
 
@@ -67,25 +72,40 @@ export const Usuarios: React.FC = () => {
         .eq('id', user.id);
 
       if (error) {
-        alert('Erro ao atualizar status: ' + error.message);
+        toast.error('Erro ao atualizar status: ' + error.message);
       } else {
+        toast.success(novoStatus ? 'Membro reativado!' : 'Membro inativado com sucesso.');
         carregarEquipe();
       }
     }
   };
 
   const handleExcluir = async (user: any) => {
-    if (window.confirm(`ATENÇÃO: Deseja REALMENTE excluir o perfil de ${user.full_name}? Esta ação não pode ser desfeita.`)) {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user.id);
+    if (window.confirm(`ATENÇÃO: Deseja REALMENTE excluir ${user.role === 'paciente' ? 'o cadastro do paciente' : 'o perfil de'} ${user.full_name}? Esta ação não pode ser desfeita.`)) {
+      
+      const { error } = user.role === 'paciente'
+        ? await supabase.rpc('admin_delete_paciente', { target_id: user.id })
+        : await supabase.from('profiles').delete().eq('id', user.id);
 
       if (error) {
-        alert('Erro ao excluir: ' + error.message);
+        if (error.code === '23503') {
+          toast.error('Não é possível excluir pois existem registros (atendimentos, prontuários ou agendamentos) vinculados a este perfil.');
+        } else {
+          toast.error('Erro ao excluir: ' + error.message);
+        }
       } else {
-        alert('Perfil excluído com sucesso!');
+        toast.success(`${user.role === 'paciente' ? 'Paciente' : 'Perfil'} excluído com sucesso!`);
+        
+        // Atualização Otimista (remove da tela na hora)
+        setEquipe(prev => prev.filter(m => m.id !== user.id));
+        setPacientes(prev => prev.filter(p => p.id !== user.id));
+        
         carregarEquipe();
+        carregarPacientes();
+        
+        // Limpa seleção e fecha modais se estiverem abertos
+        setSelectedUser(null);
+        setIsModalOpen(false);
       }
     }
   };
@@ -134,8 +154,8 @@ export const Usuarios: React.FC = () => {
 
         {/* Lado Esquerdo: Lista */}
         <div style={{ flex: '1 1 600px' }}>
-          <div className="glass-card" style={{ 
-            padding: '0.5rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', 
+          <div className="glass-card" style={{
+            padding: '0.5rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem',
             flexWrap: 'wrap', alignItems: 'center', background: 'hsla(var(--bg-main), 0.6)',
             borderColor: 'hsl(var(--border-light))', borderStyle: 'solid', borderWidth: '1px'
           }}>
@@ -145,8 +165,8 @@ export const Usuarios: React.FC = () => {
                 type="text"
                 placeholder="Pesquisar por nome, e-mail ou CPF..."
                 className="form-input"
-                style={{ 
-                  paddingLeft: '2.75rem', height: '40px', border: 'none', 
+                style={{
+                  paddingLeft: '2.75rem', height: '40px', border: 'none',
                   background: 'transparent', width: '100%', fontSize: '0.9rem'
                 }}
                 value={searchTerm}
@@ -186,26 +206,26 @@ export const Usuarios: React.FC = () => {
 
           <div className="glass-card" style={{ padding: '0', overflow: 'hidden' }}>
             {/* Cabeçalho da Tabela */}
-            <div style={{ 
-              display: 'flex', alignItems: 'center', padding: '1rem 1.5rem', 
+            <div style={{
+              display: 'flex', alignItems: 'center', padding: '1rem 1.5rem',
               background: 'hsla(var(--primary), 0.05)', borderBottom: '1px solid hsl(var(--border-light))',
               gap: '1rem', fontWeight: 700, fontSize: '0.85rem', color: 'hsl(var(--text-muted))',
               textTransform: 'uppercase', letterSpacing: '0.5px'
             }}>
-              <div 
-                onClick={() => handleSort('name')} 
+              <div
+                onClick={() => handleSort('name')}
                 style={{ flex: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: sortBy === 'name' ? 'hsl(var(--primary))' : 'inherit' }}
               >
                 Colaborador {sortBy === 'name' ? (sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />) : <ArrowUpDown size={14} opacity={0.3} />}
               </div>
-              <div 
-                onClick={() => handleSort('email')} 
+              <div
+                onClick={() => handleSort('email')}
                 style={{ flex: 1.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', color: sortBy === 'email' ? 'hsl(var(--primary))' : 'inherit' }}
               >
                 E-mail {sortBy === 'email' ? (sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />) : <ArrowUpDown size={14} opacity={0.3} />}
               </div>
-              <div 
-                onClick={() => handleSort('role')} 
+              <div
+                onClick={() => handleSort('role')}
                 style={{ width: '120px', textAlign: 'center', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: sortBy === 'role' ? 'hsl(var(--primary))' : 'inherit' }}
               >
                 Função {sortBy === 'role' ? (sortOrder === 'asc' ? <ArrowUp size={14} /> : <ArrowDown size={14} />) : <ArrowUpDown size={14} opacity={0.3} />}
@@ -254,9 +274,9 @@ export const Usuarios: React.FC = () => {
                     padding: '1rem 1.5rem', background: u.is_active === false ? 'hsla(0, 0%, 50%, 0.05)' : 'transparent',
                     borderBottom: '1px solid hsl(var(--border-light))',
                     transition: 'all 0.2s', opacity: u.is_active === false ? 0.7 : 1,
-                    cursor: u.role === 'paciente' ? 'default' : 'pointer'
-                  }} onClick={() => u.role !== 'paciente' && handleEdit(u)}>
-                    
+                    cursor: u.role === 'admin' ? 'default' : 'pointer'
+                  }} onClick={() => u.role !== 'admin' && handleEdit(u)}>
+
                     {/* Coluna 1: Nome */}
                     <div style={{ flex: 2, display: 'flex', gap: '1rem', alignItems: 'center' }}>
                       <div className="avatar-sm" style={{
@@ -325,14 +345,14 @@ export const Usuarios: React.FC = () => {
                 </div>
               ))}
               <div style={{ display: 'flex', gap: '1rem' }}>
-                  <div style={{ marginTop: '0.2rem' }}>
-                    <CheckCircle size={18} color="hsl(var(--primary))" />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, color: 'hsl(var(--primary))', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Paciente Externo</div>
-                    <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.4 }}>Pessoas cadastradas para atendimento. Não possuem acesso ao sistema.</p>
-                  </div>
+                <div style={{ marginTop: '0.2rem' }}>
+                  <CheckCircle size={18} color="hsl(var(--primary))" />
                 </div>
+                <div>
+                  <div style={{ fontWeight: 600, color: 'hsl(var(--primary))', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Paciente Externo</div>
+                  <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.4 }}>Pessoas cadastradas para atendimento. Não possuem acesso ao sistema.</p>
+                </div>
+              </div>
             </div>
 
             <div style={{ marginTop: '2rem', padding: '1rem', borderRadius: 'var(--radius-sm)', background: 'white', border: '1px dashed hsl(var(--border-light))' }}>
@@ -353,6 +373,7 @@ export const Usuarios: React.FC = () => {
         onClose={() => {
           setIsModalOpen(false);
           carregarEquipe();
+          carregarPacientes();
         }}
         userToEdit={selectedUser}
         onDelete={handleExcluir}

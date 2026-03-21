@@ -1,21 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Paciente } from '../lib/supabase';
-import { Search, UserPlus, Calendar, CreditCard, ChevronRight, Contact2, Filter, Check } from 'lucide-react';
+import { Search, UserPlus, Calendar, CreditCard, ChevronRight, Contact2, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PacienteModal } from '../components/PacienteModal';
+import { useAuth } from '../contexts/AuthContext';
 
 export const Pacientes: React.FC = () => {
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilters, setActiveFilters] = useState<string[]>(['Nome', 'CPF', 'SUS']);
+  const [activeFilters, setActiveFilters] = useState<string[]>(['Nome', 'CPF', 'SUS', 'Nascimento']);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { profile } = useAuth();
   const navigate = useNavigate();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  const canRegister = profile?.role === 'admin' || profile?.role === 'recepcao' || profile?.role === 'psicologo';
 
   useEffect(() => {
     carregarPacientes();
   }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setIsFilterOpen(false);
+      }
+    };
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsFilterOpen(false);
+    };
+
+    if (isFilterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('keydown', handleEsc);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [isFilterOpen]);
 
   const carregarPacientes = async () => {
     setLoading(true);
@@ -31,79 +57,105 @@ export const Pacientes: React.FC = () => {
   };
 
   const toggleFilter = (f: string) => {
-    setActiveFilters(prev => 
+    setActiveFilters(prev =>
       prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]
     );
   };
 
   const filteredPacientes = pacientes.filter(p => {
     if (!searchTerm.trim()) return true;
-    
+
     const term = searchTerm.toLowerCase();
     const matchNome = activeFilters.includes('Nome') && p.nome.toLowerCase().includes(term);
     const matchCpf = activeFilters.includes('CPF') && p.cpf.replace(/\D/g, '').includes(term.replace(/\D/g, ''));
     const matchSus = activeFilters.includes('SUS') && p.cartao_sus?.includes(term);
 
-    return matchNome || matchCpf || matchSus;
+    const dateMatch = searchTerm.match(/^(\d{2})[/-](\d{2})[/-](\d{4})$/);
+    let matchNasc = false;
+    if (activeFilters.includes('Nascimento') && dateMatch) {
+      const [_, dd, mm, yyyy] = dateMatch;
+      matchNasc = p.data_nascimento === `${yyyy}-${mm}-${dd}`;
+    }
+
+    return matchNome || matchCpf || matchSus || matchNasc;
   });
 
   return (
     <div className="layout-body" style={{ animation: 'fadeIn 0.4s ease-out' }}>
-      <div className="dashboard-header border-bottom" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      <div className="dashboard-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 className="dashboard-title flex-row"><Contact2 size={28} /> Meus Pacientes</h1>
           <p className="text-muted">Lista completa de pacientes cadastrados na clínica.</p>
         </div>
-        
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)} style={{ width: 'auto' }}>
-          <UserPlus size={18} /> Novo Paciente
-        </button>
+
+        {canRegister && (
+          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)} style={{ width: 'auto' }}>
+            <UserPlus size={18} /> Novo Paciente
+          </button>
+        )}
       </div>
 
-      <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          
-          <div className="input-group" style={{ position: 'relative', margin: 0 }}>
-            <input 
-              className="form-input" 
-              style={{ paddingLeft: '3rem', fontSize: '1.05rem' }}
-              placeholder="Digite sua busca aqui..." 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Search size={22} color="hsl(var(--text-muted))" style={{ position: 'absolute', left: '1rem', top: '0.85rem' }} />
-          </div>
+      <div className="glass-card" style={{ 
+        padding: '1.5rem', 
+        marginBottom: '1.5rem', 
+        position: 'relative', 
+        zIndex: isFilterOpen ? 100 : 1 
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: 0 }}>
+              <Search size={24} color="hsl(var(--primary))" />
+              Gestão de Pacientes
+            </h3>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'hsl(var(--text-muted))', marginRight: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Filter size={14} /> Buscar por:
-            </span>
-            {['Nome', 'CPF', 'SUS'].map(f => (
+            <div style={{ position: 'relative' }} ref={filterRef}>
               <button
-                key={f}
-                onClick={() => toggleFilter(f)}
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
                 style={{
-                  padding: '0.4rem 1rem',
-                  borderRadius: '20px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  border: '1px solid',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                  transition: 'all 0.2s ease',
-                  background: activeFilters.includes(f) ? 'hsla(var(--primary), 0.1)' : 'transparent',
-                  borderColor: activeFilters.includes(f) ? 'hsl(var(--primary))' : 'hsl(var(--border-light))',
-                  color: activeFilters.includes(f) ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
+                  width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isFilterOpen ? 'hsl(var(--primary))' : 'hsla(var(--primary), 0.1)',
+                  border: 'none', cursor: 'pointer', transition: 'all 0.3s'
                 }}
               >
-                {activeFilters.includes(f) && <Check size={12} />}
-                {f}
+                <Filter size={18} color={isFilterOpen ? '#fff' : 'hsl(var(--primary))'} />
               </button>
-            ))}
-          </div>
 
+              {isFilterOpen && (
+                <div
+                  style={{
+                    position: 'absolute', top: '120%', left: 0, width: '220px', background: 'hsl(var(--bg-card))',
+                    border: '1px solid hsl(var(--border-light))', borderRadius: 'var(--radius-md)',
+                    boxShadow: 'var(--shadow-xl)', padding: '1rem', zIndex: 2000, animation: 'fadeIn 0.2s'
+                  }}
+                >
+                  <div style={{ fontSize: '0.75rem', fontWeight: 800, marginBottom: '0.75rem', color: 'hsl(var(--text-muted))', textTransform: 'uppercase' }}>Filtros Ativos</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {['Nome', 'CPF', 'SUS', 'Nascimento'].map(f => (
+                      <label key={f} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
+                        <input
+                          type="checkbox"
+                          checked={activeFilters.includes(f)}
+                          onChange={() => toggleFilter(f)}
+                        />
+                        {f === 'SUS' ? 'Cartão SUS' : f === 'Nascimento' ? 'Data de Nasc.' : f}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="input-group" style={{ position: 'relative', margin: 0 }}>
+          <input
+            className="form-input"
+            style={{ paddingLeft: '3rem', fontSize: '1.1rem', background: 'hsla(var(--bg-main), 0.5)' }}
+            placeholder="Pesquisar por nome, CPF, SUS ou data de nascimento..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Search size={22} color="hsl(var(--text-muted))" style={{ position: 'absolute', left: '1rem', top: '0.85rem' }} />
         </div>
       </div>
 
@@ -115,11 +167,11 @@ export const Pacientes: React.FC = () => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
           {filteredPacientes.map(p => (
-            <div 
-              key={p.id} 
-              className="glass-card" 
-              style={{ 
-                padding: '1.5rem', 
+            <div
+              key={p.id}
+              className="glass-card"
+              style={{
+                padding: '1.5rem',
                 cursor: 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 border: '1px solid hsl(var(--border-light))',
@@ -139,9 +191,9 @@ export const Pacientes: React.FC = () => {
               }}
             >
               <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
-                <div className="avatar-sm" style={{ 
-                  width: '50px', height: '50px', fontSize: '1.2rem', 
-                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))' 
+                <div className="avatar-sm" style={{
+                  width: '50px', height: '50px', fontSize: '1.2rem',
+                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--secondary)))'
                 }}>
                   {p.nome[0].toUpperCase()}
                 </div>
@@ -176,10 +228,10 @@ export const Pacientes: React.FC = () => {
         </div>
       )}
 
-      <PacienteModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        onSuccess={carregarPacientes} 
+      <PacienteModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={carregarPacientes}
       />
     </div>
   );

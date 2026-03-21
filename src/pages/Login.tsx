@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -33,7 +34,9 @@ export const Login: React.FC = () => {
       if (error) throw error;
       navigate('/dashboard');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao fazer login.');
+      const msg = err.message || 'Erro ao fazer login.';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

@@ -36,6 +36,8 @@ export interface Agendamento {
   psicologo_id: string;
   data_hora: string;
   status: AgendamentoStatus;
+  inicio_atendimento?: string | null;
+  fim_atendimento?: string | null;
   created_at: string;
   paciente?: Paciente;
   psicologo?: Profile;

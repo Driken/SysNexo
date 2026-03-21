@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import type { Paciente } from '../lib/supabase';
 import { X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface PacienteModalProps {
   isOpen: boolean;
@@ -17,6 +19,7 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
   const [cartaoSus, setCartaoSus] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const navigate = useNavigate();
   const modalContentRef = useRef<HTMLDivElement>(null);
   const isMouseDownInside = useRef(false);
 
@@ -57,7 +60,8 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
         }
         throw error;
       }
-
+      
+      toast.success('Paciente cadastrado com sucesso!');
       onSuccess(data as Paciente);
       
       // Limpa form
@@ -66,8 +70,14 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
       setDataNascimento('');
       setCartaoSus('');
       onClose();
+
+      // Redireciona para a página dedicada de agendamento para maior agilidade
+      navigate('/atendimentos/agendar', { state: { pacienteId: (data as Paciente).id } });
+
     } catch (err: any) {
-      setErrorMsg(err.message || 'Erro ao cadastrar paciente');
+      const msg = err.message || 'Erro ao cadastrar paciente';
+      setErrorMsg(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -101,7 +111,7 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
           overflowY: 'auto', 
           background: 'var(--bg-card)', 
           color: 'hsl(var(--text-main))',
-          padding: '2rem',
+          padding: '1.5rem',
           margin: '2rem auto'
         }}
       >
@@ -137,11 +147,18 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
             <input className="form-input" value={cartaoSus} onChange={e => setCartaoSus(e.target.value)} placeholder="Apenas números..." />
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            gap: '1rem', 
+            marginTop: '2rem',
+            paddingTop: '1.5rem',
+            borderTop: '1px solid hsl(var(--border-light))'
+          }}>
+            <button type="button" className="btn btn-secondary" onClick={onClose} disabled={loading} style={{ width: 'auto', minWidth: '110px' }}>
               Cancelar
             </button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: 'auto', minWidth: '150px' }}>
               {loading ? 'Salvando...' : 'Salvar Paciente'}
             </button>
           </div>

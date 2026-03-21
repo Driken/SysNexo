@@ -39,6 +39,14 @@ export const Prontuarios: React.FC = () => {
           const ultimo = aData.find(a => a.paciente_id === p.id);
           return { ...p, ultimo_atendimento: ultimo || null };
         });
+
+        // Ordenar por data do último atendimento (mais recentes primeiro)
+        prontuariosMap.sort((a, b) => {
+          const dateA = a.ultimo_atendimento ? new Date(a.ultimo_atendimento.data_atendimento).getTime() : 0;
+          const dateB = b.ultimo_atendimento ? new Date(b.ultimo_atendimento.data_atendimento).getTime() : 0;
+          return dateB - dateA;
+        });
+
         setPacientes(prontuariosMap);
       } else {
         setPacientes(pData.map(p => ({ ...p, ultimo_atendimento: null })));
@@ -93,7 +101,10 @@ export const Prontuarios: React.FC = () => {
                   <div>
                     <div style={{ fontWeight: 600, color: 'hsl(var(--text-main))', fontSize: '1.1rem', marginBottom: '0.25rem' }}>{p.nome}</div>
                     <div className="flex-row" style={{ gap: '1rem', fontSize: '0.8rem', color: 'hsl(var(--text-muted))' }}>
-                      <span className="flex-row" style={{ gap: '0.4rem' }}><Clock size={14}/> Última Evolução: {p.ultimo_atendimento ? new Date(p.ultimo_atendimento.data_atendimento).toLocaleDateString('pt-BR') : 'Sem registros'}</span>
+                      <span className="flex-row" style={{ gap: '0.4rem' }}>
+                        <Clock size={14}/> Última Evolução: {p.ultimo_atendimento ? 
+                          `${new Date(p.ultimo_atendimento.data_atendimento).toLocaleDateString('pt-BR')} às ${new Date(p.ultimo_atendimento.data_atendimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` 
+                          : 'Sem registros'}</span>
                       {p.ultimo_atendimento && (
                         <span style={{ color: 'hsl(var(--primary))', fontWeight: 600 }}>ID: {p.ultimo_atendimento.id.substring(0, 8)}...</span>
                       )}

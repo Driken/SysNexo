@@ -8,11 +8,18 @@ import { MeusDados } from './pages/MeusDados';
 import { Usuarios } from './pages/Usuarios';
 import { Pacientes } from './pages/Pacientes';
 import { Prontuarios } from './pages/Prontuarios';
+import { Atendimentos } from './pages/Atendimentos';
+import { AgendarAtendimento } from './pages/AgendarAtendimento';
+import { SalaEspera } from './pages/SalaEspera';
 import { Layout } from './components/Layout';
+// Trigger HMR re-render
+
+import { Toaster } from 'sonner';
 
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors closeButton />
       <Router>
         <Routes>
           <Route path="/" element={<Login />} />
@@ -72,6 +79,36 @@ function App() {
               <PrivateRoute>
                 <Layout>
                   <Prontuarios />
+                </Layout>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/atendimentos" 
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Atendimentos />
+                </Layout>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/atendimentos/agendar" 
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <AgendarAtendimento />
+                </Layout>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/sala-espera" 
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <SalaEspera />
                 </Layout>
               </PrivateRoute>
             } 

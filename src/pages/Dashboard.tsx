@@ -33,7 +33,7 @@ export const Dashboard: React.FC = () => {
     try {
       const { count: pCount } = await supabase.from('pacientes').select('*', { count: 'exact', head: true });
       const { count: aCount } = await supabase.from('atendimentos').select('*', { count: 'exact', head: true });
-      
+
       const today = new Date().toISOString().split('T')[0];
       const { count: hCount } = await supabase.from('atendimentos')
         .select('*', { count: 'exact', head: true })
@@ -59,8 +59,8 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const displayName = profile?.full_name && profile.full_name.includes('-') 
-    ? 'Usuário' 
+  const displayName = profile?.full_name && profile.full_name.includes('-')
+    ? 'Usuário'
     : profile?.full_name || 'Usuário';
 
   const StatCard = ({ title, value, icon: Icon, color, bg }: any) => (
@@ -77,7 +77,7 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', animation: 'fadeIn 0.4s ease-out' }}>
-      
+
       <div className="dashboard-header" style={{ marginBottom: 0 }}>
         <h1 className="dashboard-title">Olá, {displayName.split(' ')[0]}!</h1>
         <p className="text-muted">Bem-vindo(a) ao sistema de gestão clínica.</p>
@@ -85,37 +85,37 @@ export const Dashboard: React.FC = () => {
 
       {/* Mini-Widgets de Métricas */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-        <StatCard 
-          title="Pacientes Ativos" 
-          value={loading ? '...' : stats.pacientesTotal} 
-          icon={Users} 
-          color="hsl(var(--primary))" 
+        <StatCard
+          title="Pacientes Ativos"
+          value={loading ? '...' : stats.pacientesTotal}
+          icon={Users}
+          color="hsl(var(--primary))"
           bg="hsla(var(--primary), 0.1)"
         />
-        <StatCard 
-          title="Total Atendimentos" 
-          value={loading ? '...' : stats.atendimentosTotal} 
-          icon={ClipboardList} 
-          color="hsl(var(--secondary))" 
+        <StatCard
+          title="Total Atendimentos"
+          value={loading ? '...' : stats.atendimentosTotal}
+          icon={ClipboardList}
+          color="hsl(var(--secondary))"
           bg="hsla(var(--secondary), 0.1)"
         />
-        <StatCard 
-          title="Consultas Hoje" 
-          value={loading ? '...' : stats.consultasHoje} 
-          icon={Calendar} 
-          color="#15803d" 
+        <StatCard
+          title="Consultas Hoje"
+          value={loading ? '...' : stats.consultasHoje}
+          icon={Calendar}
+          color="#15803d"
           bg="#dcfce7"
         />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '2rem', alignItems: 'flex-start' }}>
-        
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           <BuscaUniversal />
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {viewMode === 'recepcao' || viewMode === 'admin' ? (
-              <FilaDeEspera />
+              <FilaDeEspera isCompact />
             ) : null}
 
             {viewMode === 'psicologo' || viewMode === 'admin' ? (
@@ -128,18 +128,16 @@ export const Dashboard: React.FC = () => {
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', fontSize: '1.1rem' }}>
             <Clock size={20} color="hsl(var(--primary))" /> Recém Atendidos
           </h3>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {loading ? (
-              [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: '64px', borderRadius: '12px' }} />)
-            ) : stats.recentes.length === 0 ? (
+            {stats.recentes.length === 0 ? (
               <div className="text-center" style={{ padding: '1rem' }}>
                 <p className="text-muted" style={{ fontSize: '0.85rem' }}>Nenhum atendimento recente.</p>
               </div>
             ) : (
               stats.recentes.map((item: any) => (
                 <Link key={item.id} to={`/paciente/${item.paciente_id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div className="list-item-hover" style={{ 
+                  <div className="list-item-hover" style={{
                     padding: '0.85rem', borderRadius: '12px', background: 'hsla(var(--bg-main), 0.4)',
                     border: '1px solid hsl(var(--border-light))', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                   }}>
@@ -155,7 +153,7 @@ export const Dashboard: React.FC = () => {
               ))
             )}
           </div>
-          
+
           <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-light))' }}>
             <Link to="/pacientes" className="text-sm" style={{ color: 'hsl(var(--primary))', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               Ver todos os pacientes <ChevronRight size={14} />
