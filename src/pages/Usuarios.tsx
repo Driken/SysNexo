@@ -7,6 +7,7 @@ import { UsuariosModal } from '../components/UsuariosModal';
 export const Usuarios: React.FC = () => {
   const { profile } = useAuth();
   const [equipe, setEquipe] = useState<any[]>([]);
+  const [pacientes, setPacientes] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,7 +26,16 @@ export const Usuarios: React.FC = () => {
 
   useEffect(() => {
     carregarEquipe();
+    carregarPacientes();
   }, []);
+
+  const carregarPacientes = async () => {
+    const { data } = await supabase
+      .from('pacientes')
+      .select('*')
+      .order('nome', { ascending: true });
+    if (data) setPacientes(data.map(p => ({ ...p, full_name: p.nome, role: 'paciente', is_active: true })));
+  };
 
   const carregarEquipe = async () => {
     const { data } = await supabase
@@ -149,7 +159,8 @@ export const Usuarios: React.FC = () => {
                 { id: 'all', label: 'Todos' },
                 { id: 'admin', label: 'Admins' },
                 { id: 'psicologo', label: 'Psicólogos' },
-                { id: 'recepcao', label: 'Recepção' }
+                { id: 'recepcao', label: 'Recepção' },
+                { id: 'paciente', label: 'Pacientes' }
               ].map(cat => (
                 <button
                   key={cat.id}
@@ -203,7 +214,7 @@ export const Usuarios: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {equipe
+              {[...equipe, ...pacientes]
                 .filter(u => {
                   // Primeiro: Filtro de Hierarquia (Admin vê tudo, outros veem par)
                   let accessMatch = false;
@@ -243,8 +254,8 @@ export const Usuarios: React.FC = () => {
                     padding: '1rem 1.5rem', background: u.is_active === false ? 'hsla(0, 0%, 50%, 0.05)' : 'transparent',
                     borderBottom: '1px solid hsl(var(--border-light))',
                     transition: 'all 0.2s', opacity: u.is_active === false ? 0.7 : 1,
-                    cursor: 'pointer'
-                  }} onClick={() => handleEdit(u)}>
+                    cursor: u.role === 'paciente' ? 'default' : 'pointer'
+                  }} onClick={() => u.role !== 'paciente' && handleEdit(u)}>
                     
                     {/* Coluna 1: Nome */}
                     <div style={{ flex: 2, display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -253,7 +264,7 @@ export const Usuarios: React.FC = () => {
                         filter: u.is_active === false ? 'grayscale(1)' : 'none',
                         flexShrink: 0
                       }}>
-                        {(u.full_name || 'U')[0].toUpperCase()}
+                        {u.role === 'paciente' ? 'P' : (u.full_name || 'U')[0].toUpperCase()}
                       </div>
                       <div style={{
                         fontWeight: 600, color: 'hsl(var(--text-main))', fontSize: '0.95rem',
@@ -266,19 +277,19 @@ export const Usuarios: React.FC = () => {
 
                     {/* Coluna 2: Email */}
                     <div style={{ flex: 1.5, fontSize: '0.85rem', color: 'hsl(var(--text-muted))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {u.email || 'Sem Email'}
+                      {u.role === 'paciente' ? `CPF: ${u.cpf || 'N/I'}` : (u.email || 'Sem Email')}
                     </div>
 
                     {/* Coluna 3: Função */}
                     <div style={{ width: '120px', textAlign: 'center' }}>
                       <span style={{
                         fontSize: '0.7rem', fontWeight: 700, padding: '0.3rem 0.6rem', borderRadius: '12px',
-                        background: u.role === 'admin' ? '#fee2e2' : u.role === 'psicologo' ? '#e0e7ff' : '#dcfce7',
-                        color: u.role === 'admin' ? '#b91c1c' : u.role === 'psicologo' ? '#4338ca' : '#15803d',
+                        background: u.role === 'admin' ? '#fee2e2' : u.role === 'psicologo' ? '#e0e7ff' : u.role === 'recepcao' ? '#dcfce7' : 'hsla(var(--primary), 0.1)',
+                        color: u.role === 'admin' ? '#b91c1c' : u.role === 'psicologo' ? '#4338ca' : u.role === 'recepcao' ? '#15803d' : 'hsl(var(--primary))',
                         textTransform: 'uppercase', letterSpacing: '0.5px',
                         display: 'inline-block', width: '90px'
                       }}>
-                        {(u.role || 'user').substring(0, 10)}
+                        {u.role === 'paciente' ? 'Paciente' : (u.role || 'user').substring(0, 10)}
                       </span>
                     </div>
 
@@ -313,6 +324,15 @@ export const Usuarios: React.FC = () => {
                   </div>
                 </div>
               ))}
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                  <div style={{ marginTop: '0.2rem' }}>
+                    <CheckCircle size={18} color="hsl(var(--primary))" />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'hsl(var(--primary))', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Paciente Externo</div>
+                    <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.4 }}>Pessoas cadastradas para atendimento. Não possuem acesso ao sistema.</p>
+                  </div>
+                </div>
             </div>
 
             <div style={{ marginTop: '2rem', padding: '1rem', borderRadius: 'var(--radius-sm)', background: 'white', border: '1px dashed hsl(var(--border-light))' }}>

@@ -7,8 +7,17 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, viewMode, setViewMode } = useAuth();
   const location = useLocation();
+  const [brightness, setBrightness] = useState(1);
+  const [isDisplayOpen, setIsDisplayOpen] = useState(false);
+
+  const cycleBrightness = () => {
+    setBrightness(prev => {
+      if (prev <= 0.5) return 1;
+      return prev - 0.25;
+    });
+  };
   
   // Caso o Supabase não tenha registrado um nome, ele usa "Usuário UUID", então tratamos isso na interface:
   const formatName = (name: string) => {
@@ -36,7 +45,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const navItems = [
     { name: 'Painel Geral', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
-    ...(profile?.role === 'psicologo' || profile?.role === 'admin' ? [
+    ...(viewMode === 'psicologo' || viewMode === 'admin' ? [
       { name: 'Meus Pacientes', path: '/pacientes', icon: <Contact2 size={20} /> },
       { name: 'Prontuários', path: '/prontuarios', icon: <FileText size={20} /> },
     ] : []),
@@ -44,7 +53,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   ];
 
   return (
-    <div className="layout-container">
+    <div className="layout-container" style={{ filter: `brightness(${brightness})` }}>
       {/* Sidebar Lateral */}
       <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header" style={{ justifyContent: isCollapsed ? 'center' : 'space-between' }}>
@@ -166,17 +175,99 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         {/* Topbar Simplificada Flutuante */}
         <header className="topbar-modern">
           <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'hsl(var(--text-main))' }}>
-            {location.pathname === '/dashboard' ? 'Resumo de Atividades' : 'Ficha de Paciente'}
+            {location.pathname === '/dashboard' ? 'Resumo de Atividades' : location.pathname.includes('/paciente/') ? 'Ficha de Paciente' : 'Sistema de Gestão'}
           </div>
-          <div className="flex-row">
-            <button 
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }}
-              title="Alternar Tema"
+          <div className="flex-row" style={{ gap: '0.75rem' }}>
+            {/* Seletor de Modo Admin */}
+            {profile?.role === 'admin' && (
+              <div 
+                style={{ 
+                  display: 'flex', background: 'hsla(var(--primary), 0.1)', 
+                  borderRadius: '20px', padding: '2px', border: '1px solid hsla(var(--primary), 0.2)' 
+                }}
+              >
+                {[
+                  { mode: 'recepcao', label: 'RECP' },
+                  { mode: 'psicologo', label: 'PSI' },
+                  { mode: 'admin', label: 'ALL' }
+                ].map((m) => (
+                  <button
+                    key={m.mode}
+                    onClick={() => setViewMode(m.mode as any)}
+                    style={{
+                      background: viewMode === m.mode ? 'hsl(var(--primary))' : 'transparent',
+                      color: viewMode === m.mode ? 'white' : 'hsl(var(--text-muted))',
+                      border: 'none', borderRadius: '18px', padding: '3px 10px', fontSize: '0.6rem',
+                      fontWeight: 800, cursor: 'pointer', transition: 'all 0.2s'
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div 
+              style={{
+                display: 'flex', alignItems: 'center', background: 'hsla(var(--primary), 0.1)',
+                borderRadius: '30px', padding: '1px', border: '1px solid hsla(var(--primary), 0.2)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                gap: isDisplayOpen ? '0.4rem' : '0', overflow: 'hidden'
+              }}
             >
-              {isDarkMode ? <Sun size={20} color="hsl(var(--text-muted))" /> : <Moon size={20} color="hsl(var(--text-muted))" />}
-            </button>
-            <span className="text-muted text-sm">Versão 1.0.0</span>
+              {isDisplayOpen && (
+                <div style={{ display: 'flex', gap: '0.2rem', paddingLeft: '0.4rem', animation: 'fadeIn 0.2s' }}>
+                  <button 
+                    onClick={() => setIsDarkMode(false)} 
+                    style={{ 
+                      background: !isDarkMode ? 'hsl(var(--bg-card))' : 'transparent', 
+                      border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', padding: '5px',
+                      boxShadow: !isDarkMode ? 'var(--shadow-sm)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                    title="Modo Claro"
+                  >
+                    <Sun size={15} color={!isDarkMode ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))'} />
+                  </button>
+                  <button 
+                    onClick={() => setIsDarkMode(true)} 
+                    style={{ 
+                      background: isDarkMode ? 'hsl(var(--bg-card))' : 'transparent', 
+                      border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', padding: '5px',
+                      boxShadow: isDarkMode ? 'var(--shadow-sm)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                    title="Modo Escuro"
+                  >
+                    <Moon size={15} color={isDarkMode ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))'} />
+                  </button>
+                  <div style={{ width: '1px', background: 'hsla(var(--primary), 0.2)', margin: '0 4px' }} />
+                  <button 
+                    onClick={cycleBrightness}
+                    style={{ 
+                      background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', 
+                      alignItems: 'center', gap: '4px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 800,
+                      color: 'hsl(var(--primary))'
+                    }}
+                  >
+                    {Math.round(brightness * 100)}%
+                  </button>
+                </div>
+              )}
+              
+              <button 
+                onClick={() => setIsDisplayOpen(!isDisplayOpen)}
+                style={{ 
+                  background: 'hsl(var(--bg-card))', border: 'none', cursor: 'pointer', display: 'flex', 
+                  padding: '6px', borderRadius: '50%', boxShadow: 'var(--shadow-md)',
+                  transform: isDisplayOpen ? 'rotate(90deg)' : 'none', transition: 'all 0.3s'
+                }}
+              >
+                {isDarkMode ? <Moon size={18} color="hsl(var(--primary))" /> : <Sun size={18} color="hsl(var(--primary))" />}
+              </button>
+            </div>
+            
+            <span className="text-muted text-sm" style={{ marginLeft: '0.5rem' }}>v1.1.0</span>
           </div>
         </header>
 

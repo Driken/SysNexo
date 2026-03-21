@@ -476,3 +476,25 @@ select.form-input option {
   70% { transform: scale(1.1); box-shadow: 0 0 0 10px hsla(var(--primary), 0); }
   100% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0); }
 }
+@keyframes loadingSkeleton {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 400% 100%;
+  animation: loadingSkeleton 1.5s infinite;
+}
+
+.list-item-hover {
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.list-item-hover:hover {
+  background: white !important;
+  transform: translateX(4px);
+  border-color: hsl(var(--primary)) !important;
+  box-shadow: var(--shadow-sm);
+}

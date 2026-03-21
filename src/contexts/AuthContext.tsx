@@ -9,6 +9,8 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<Profile>) => void;
+  viewMode: 'admin' | 'recepcao' | 'psicologo';
+  setViewMode: (mode: 'admin' | 'recepcao' | 'psicologo') => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -17,6 +19,8 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signOut: async () => {},
   updateProfile: () => {},
+  viewMode: 'admin',
+  setViewMode: () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -25,6 +29,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'admin' | 'recepcao' | 'psicologo'>('admin');
+
+  // Mantém viewMode sincronizado com o role real se não for admin
+  useEffect(() => {
+    if (profile && profile.role !== 'admin') {
+      setViewMode(profile.role);
+    }
+  }, [profile]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -87,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ session, profile, loading, signOut, updateProfile, viewMode, setViewMode }}>
       {children}
     </AuthContext.Provider>
   );

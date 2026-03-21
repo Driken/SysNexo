@@ -13,7 +13,7 @@ interface SessaoProps extends Atendimento {
 export const PacienteDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, viewMode } = useAuth();
 
   const [paciente, setPaciente] = useState<Paciente | null>(null);
   const [sessoes, setSessoes] = useState<SessaoProps[]>([]);
@@ -32,6 +32,9 @@ export const PacienteDetails: React.FC = () => {
     if (id) carregarDados();
   }, [id]);
 
+  const isClinico = viewMode === 'admin' || viewMode === 'psicologo';
+  const [hasAccess, setHasAccess] = useState(true);
+  
   const carregarDados = async () => {
     setLoading(true);
     
@@ -40,9 +43,6 @@ export const PacienteDetails: React.FC = () => {
     if (pData) setPaciente(pData);
 
     // Busca timeline de atendimentos 
-    // Como a Recepcao tem select = authenticated, ela ve as linhas mas sem as notas,
-    // que pelo RLS poderia restringir (Pela Policy nao restringe select no banco, entao filtraremos pelo frontend/Role tambem pra MVP Seguro, Porem LGPD exige bloqueio por Row/Col Level na database ou View).
-    // Aqui usaremos o filtro logico por Role da sessao atual baseada no PRD:
     const { data: sData, error } = await supabase
       .from('atendimentos')
       .select('*, psicologo:profiles!psicologo_id(full_name)')
@@ -50,13 +50,24 @@ export const PacienteDetails: React.FC = () => {
       .order('data_atendimento', { ascending: false });
 
     if (!error && sData) {
-      setSessoes(sData as SessaoProps[]);
+      const records = sData as SessaoProps[];
+      setSessoes(records);
+
+      // Verificação de acesso para Psicólogo: deve ter pelo menos um atendimento com este paciente
+      if (viewMode === 'psicologo') {
+        const checkAccess = records.some(s => s.psicologo_id === profile?.id);
+        if (!checkAccess && records.length > 0) {
+          // Se o psicólogo não tem atendimento com ele mas o paciente tem histórico,
+          // talvez ele precise de um "encaminhamento" formal. 
+          // Por enquanto, seguiremos o PRD: "direcionada aos pacientes encaminhados".
+          setHasAccess(false);
+        }
+      }
     }
     
     setLoading(false);
   };
 
-  const isClinico = profile?.role === 'admin' || profile?.role === 'psicologo';
   const ultimaVisita = sessoes.length > 0 ? sessoes[0] : null;
 
   const salvarSessao = async (e: React.FormEvent) => {
@@ -115,18 +126,33 @@ export const PacienteDetails: React.FC = () => {
               
               {!isClinico && ultimaVisita && (
                 <div className="glass-card" style={{ marginBottom: '1.5rem', background: 'hsl(var(--bg-main))' }}>
-                  <h3 style={{ marginBottom: '0.5rem', color: 'hsl(var(--primary))' }}>Resumo da Última Visita</h3>
+                  <h3 style={{ marginBottom: '0.5rem', color: 'hsl(var(--primary))' }}>Resumo de Triagem</h3>
                   <p style={{ margin: 0, fontWeight: 500 }}>
-                    Data: {new Date(ultimaVisita.data_atendimento).toLocaleDateString('pt-BR')} às {new Date(ultimaVisita.data_atendimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    Último atendimento: {new Date(ultimaVisita.data_atendimento).toLocaleDateString('pt-BR')} às {new Date(ultimaVisita.data_atendimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                   <p style={{ color: 'hsl(var(--text-muted))', margin: '0.2rem 0 0 0' }}>
-                    Profissional responsável: Dr(a). {ultimaVisita.psicologo?.full_name || 'Desconhecido'}
+                    Profissional responsável: <strong>Dr(a). {ultimaVisita.psicologo?.full_name || 'Desconhecido'}</strong>
+                  </p>
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-light))', fontSize: '0.8rem', color: 'hsl(var(--text-muted))', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <AlertCircle size={14} /> Notas clínicas restritas a profissionais autorizados.
+                  </div>
+                </div>
+              )}
+
+              {viewMode === 'psicologo' && !hasAccess && (
+                <div className="glass-card" style={{ borderLeft: '4px solid #ef4444', background: '#fef2f2' }}>
+                  <h3 style={{ color: '#991b1b', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <AlertCircle size={20} /> Acesso Restrito
+                  </h3>
+                  <p style={{ color: '#b91c1c', marginTop: '0.5rem' }}>
+                    Este paciente ainda não possui atendimentos registrados com você. 
+                    O acesso completo ao prontuário é liberado após o primeiro encaminhamento da recepção.
                   </p>
                 </div>
               )}
 
-              {isClinico && ultimaVisita && (
-                <div className="glass-card" style={{ background: 'hsl(var(--primary-light))', borderLeft: '4px solid hsl(var(--primary))', padding: '1.5rem', marginBottom: '1.5rem' }}>
+              {isClinico && hasAccess && ultimaVisita && (
+                <div className="glass-card" style={{ background: 'hsla(var(--primary), 0.05)', borderLeft: '4px solid hsl(var(--primary))', padding: '1.5rem', marginBottom: '1.5rem' }}>
                   <h3 className="flex-row" style={{ color: 'hsl(var(--primary))', marginBottom: '1rem' }}>
                     <AlertCircle size={20}/> Resumo da Última Sessão ({new Date(ultimaVisita.data_atendimento).toLocaleDateString('pt-BR')})
                   </h3>
@@ -147,13 +173,11 @@ export const PacienteDetails: React.FC = () => {
                 </div>
               )}
 
-              {/* Formulário de Prontuário Novo (Só Psicologo) */}
-              {isClinico && (
+              {/* Formulário de Prontuário Novo (Só Psicologo com Acesso) */}
+              {isClinico && (viewMode === 'admin' || hasAccess) && (
                 <div className="glass-card" style={{ marginTop: '1rem', padding: 0, overflow: 'hidden' }}>
                   <button 
                     onClick={() => setIsFormOpen(!isFormOpen)}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'hsla(var(--primary), 0.05)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     style={{ 
                       width: '100%', padding: '1.5rem', background: 'transparent', border: 'none', 
                       cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -169,6 +193,7 @@ export const PacienteDetails: React.FC = () => {
                       <form onSubmit={async (e) => {
                         await salvarSessao(e);
                         setIsFormOpen(false);
+                        setHasAccess(true); // Após o primeiro atendimento salvo, ele passa a ter acesso
                       }} className="flex-col" style={{ gap: '1.5rem' }}>
                         
                         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-end' }}>
@@ -180,10 +205,8 @@ export const PacienteDetails: React.FC = () => {
                               value={horaSelecao}
                               onChange={e => setHoraSelecao(e.target.value)}
                               required
-                              style={{ padding: '0.6rem 0.8rem', textAlign: 'center' }}
                             />
                           </div>
-                          
                           <div className="input-group" style={{ width: '160px', flexShrink: 0 }}>
                             <label className="input-label">Data</label>
                             <input 
@@ -192,7 +215,6 @@ export const PacienteDetails: React.FC = () => {
                               value={dataSelecao}
                               onChange={e => setDataSelecao(e.target.value)}
                               required
-                              style={{ padding: '0.6rem 0.8rem' }}
                             />
                           </div>
                         </div>
@@ -204,7 +226,6 @@ export const PacienteDetails: React.FC = () => {
                             placeholder="Defina o foco clínico para a próxima sessão..."
                             value={novoPlano}
                             onChange={e => setNovoPlano(e.target.value)}
-                            style={{ padding: '0.6rem 0.8rem' }}
                           />
                         </div>
 
@@ -214,16 +235,15 @@ export const PacienteDetails: React.FC = () => {
                             className="form-input" 
                             rows={6} 
                             required
-                            placeholder="Descreva o andamento do processo terapêutico, observações e evolução de hoje..."
+                            placeholder="Descreva o andamento do processo terapêutico..."
                             value={novaNota}
                             onChange={e => setNovaNota(e.target.value)}
-                            style={{ fontSize: '0.95rem', resize: 'vertical' }}
                           />
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                           <button type="submit" className="btn btn-primary" disabled={salvando} style={{ width: 'auto', padding: '0.75rem 2rem' }}>
-                            <Plus size={18} /> {salvando ? 'Salvando...' : 'Finalizar e Salvar'}
+                            <Plus size={18} /> {salvando ? 'Salvando...' : 'Finalizar Atendimento'}
                           </button>
                         </div>
                       </form>
@@ -234,7 +254,7 @@ export const PacienteDetails: React.FC = () => {
 
             </div>
 
-            {/* Sidebar Direita: Histórico de Consultas (Sprint 3 e 4) */}
+            {/* Sidebar Direita: Histórico de Consultas */}
             <div className="flex-col">
               <div className="glass-card">
                 <h3 className="flex-row" style={{ marginBottom: '1.5rem' }}><Clock size={20}/> Linha do Tempo</h3>
@@ -243,7 +263,6 @@ export const PacienteDetails: React.FC = () => {
                   <p className="text-muted text-sm">Nenhum atendimento registrado ainda.</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    {/* Agrupamento por Data */}
                     {Object.entries(
                       sessoes.reduce((acc: any, sessao) => {
                         const date = new Date(sessao.data_atendimento).toLocaleDateString('pt-BR');
@@ -254,9 +273,9 @@ export const PacienteDetails: React.FC = () => {
                     ).map(([date, items]: [string, any]) => (
                       <div key={date}>
                         <div style={{ 
-                          fontSize: '0.75rem', fontWeight: 700, color: 'hsl(var(--primary))', 
-                          textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem',
-                          background: 'hsla(var(--primary), 0.05)', padding: '0.2rem 0.5rem', 
+                          fontSize: '0.7rem', fontWeight: 800, color: 'hsl(var(--primary))', 
+                          textTransform: 'uppercase', marginBottom: '1rem',
+                          background: 'hsla(var(--primary), 0.1)', padding: '0.2rem 0.6rem', 
                           borderRadius: '4px', width: 'fit-content'
                         }}>
                           {date}
@@ -270,10 +289,10 @@ export const PacienteDetails: React.FC = () => {
                                 às {new Date(sessao.data_atendimento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                               </div>
                               <div className="text-muted" style={{ fontSize: '0.75rem', marginBottom: '0.5rem' }}>
-                                Psicólogo: {sessao.psicologo?.full_name || 'Desconhecido'}
+                                Psicólogo: <strong>{sessao.psicologo?.full_name || 'Desconhecido'}</strong>
                               </div>
                               
-                              {isClinico && sessao.notas_evolucao && (
+                              {(isClinico && hasAccess) && sessao.notas_evolucao && (
                                 <div style={{ background: 'hsl(var(--bg-main))', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>
                                   <strong>Notas:</strong> {sessao.notas_evolucao}
                                 </div>
