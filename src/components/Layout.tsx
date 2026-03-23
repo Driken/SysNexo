@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { LogOut, LayoutDashboard, Settings, Activity, Menu, Sun, Moon, Bell, Users, ChevronDown, ChevronRight, FileText, Contact2, Search, Clock } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
@@ -17,6 +17,27 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [notifications, setNotifications] = useState<{ id: string, text: string, time: string, read: boolean }[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isThemePanelOpen, setIsThemePanelOpen] = useState(false);
+  const themePanelRef = useRef<HTMLDivElement>(null);
+  const notifPanelRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const brightnessTextRef = useRef<HTMLSpanElement>(null);
+  const [brightness, setBrightness] = useState<number>(() => Number(localStorage.getItem('theme-brightness')) || 100);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (themePanelRef.current && !themePanelRef.current.contains(event.target as Node)) {
+        setIsThemePanelOpen(false);
+      }
+      if (notifPanelRef.current && !notifPanelRef.current.contains(event.target as Node)) {
+        setIsNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -52,6 +73,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       localStorage.setItem('theme', 'light');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('theme-brightness', brightness.toString());
+  }, [brightness]);
 
   const handleLogout = async () => {
     await signOut();
@@ -283,20 +308,80 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             )}
 
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                    style={{
-                      background: 'hsl(var(--bg-card))', border: 'none', cursor: 'pointer', display: 'flex',
-                      padding: '8px', borderRadius: '50%', boxShadow: 'var(--shadow-md)',
-                      transition: 'all 0.3s'
-                    }}
-                    title="Alternar Modo Escuro"
-                  >
-                    {isDarkMode ? <Sun size={18} color="hsl(var(--primary))" /> : <Moon size={18} color="hsl(var(--primary))" />}
-                  </button>
+              <div style={{ position: 'relative' }} ref={themePanelRef}>
+                <button
+                  onClick={() => setIsThemePanelOpen(!isThemePanelOpen)}
+                  style={{
+                    background: 'hsl(var(--bg-card))', border: 'none', cursor: 'pointer', display: 'flex',
+                    padding: '8px', borderRadius: '50%', boxShadow: 'var(--shadow-md)',
+                    transition: 'all 0.3s'
+                  }}
+                  title="Aparência e Brilho"
+                >
+                  {isDarkMode ? <Moon size={18} color="hsl(var(--primary))" /> : <Sun size={18} color="hsl(var(--primary))" />}
+                </button>
 
+                {isThemePanelOpen && (
+                  <div style={{
+                      position: 'absolute', top: '130%', right: '0',
+                      backgroundColor: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-light))',
+                      borderRadius: '12px', padding: '0.75rem 1.25rem',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 999999,
+                      animation: 'fadeIn 0.2s ease-out',
+                      display: 'flex', alignItems: 'center', gap: '1.25rem',
+                      whiteSpace: 'nowrap'
+                    }}>
+                    {/* Botões de Modo */}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => setIsDarkMode(false)}
+                        style={{
+                          padding: '0.4rem 0.75rem', borderRadius: '8px', border: 'none',
+                          background: !isDarkMode ? 'hsla(var(--primary), 0.1)' : 'transparent',
+                          color: !isDarkMode ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                          fontWeight: 600, fontSize: '0.8rem'
+                        }}
+                      >
+                        <Sun size={14} /> Claro
+                      </button>
+                      <button
+                        onClick={() => setIsDarkMode(true)}
+                        style={{
+                          padding: '0.4rem 0.75rem', borderRadius: '8px', border: 'none',
+                          background: isDarkMode ? 'hsla(var(--primary), 0.1)' : 'transparent',
+                          color: isDarkMode ? 'hsl(var(--primary))' : 'hsl(var(--text-muted))',
+                          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                          fontWeight: 600, fontSize: '0.8rem'
+                        }}
+                      >
+                        <Moon size={14} /> Escuro
+                      </button>
+                    </div>
+
+                    <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-light))', opacity: 0.5 }} />
+
+                    {/* Controle de Brilho */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--text-main))' }}>Brilho: <span ref={brightnessTextRef} style={{ color: 'hsl(var(--primary))' }}>{brightness}%</span></span>
+                      <input 
+                        type="range" min="30" max="100" defaultValue={brightness} 
+                        onInput={(e) => {
+                          const val = (e.target as HTMLInputElement).value;
+                          if (overlayRef.current) overlayRef.current.style.backgroundColor = `rgba(0, 0, 0, ${1 - Number(val) / 100})`;
+                          if (brightnessTextRef.current) brightnessTextRef.current.innerText = `${val}%`;
+                        }}
+                        onChange={(e) => setBrightness(Number(e.target.value))}
+                        style={{ width: '100px', accentColor: 'hsl(var(--primary))', cursor: 'pointer', margin: 0 }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ position: 'relative' }} ref={notifPanelRef}>
                   <button
-                    onClick={() => setIsNotificationsOpen(true)}
+                    onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
                     style={{
                       background: 'hsl(var(--bg-card))', border: 'none', cursor: 'pointer', display: 'flex',
                       padding: '8px', borderRadius: '50%', boxShadow: 'var(--shadow-md)',
@@ -313,6 +398,62 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       }} />
                     )}
                   </button>
+
+                  {isNotificationsOpen && (
+                    <div style={{
+                      position: 'absolute', top: '130%', right: '-10px', width: '320px',
+                      backgroundColor: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-light))',
+                      borderRadius: '12px', padding: '1rem',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 999999,
+                      animation: 'fadeIn 0.2s ease-out',
+                      display: 'flex', flexDirection: 'column', gap: '1rem'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>Notificações</span>
+                        {notifications.length > 0 && (
+                          <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button
+                               onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+                               style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--primary))', fontWeight: 600, padding: 0 }}
+                               title="Marcar todas como lidas"
+                            >
+                               Lidas
+                            </button>
+                            <button
+                               onClick={() => setNotifications([])}
+                               style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, padding: 0 }}
+                               title="Apagar todas as notificações"
+                            >
+                               Apagar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {notifications.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>
+                            Nenhuma notificação por enquanto.
+                          </div>
+                        ) : (
+                          notifications.slice(0, 3).map(notif => (
+                            <div key={notif.id} style={{
+                              padding: '0.75rem', background: notif.read ? 'transparent' : 'hsla(var(--primary), 0.05)',
+                              borderRadius: '8px', border: '1px solid hsl(var(--border-light))',
+                              position: 'relative'
+                            }}>
+                              <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', lineHeight: '1.4', color: 'hsl(var(--text-main))', whiteSpace: 'normal', wordBreak: 'break-word' }}>{notif.text}</p>
+                              <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>{notif.time}</span>
+                              {!notif.read && (
+                                <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', width: '6px', height: '6px', background: 'hsl(var(--primary))', borderRadius: '50%' }} />
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginLeft: 'auto' }}>
@@ -375,76 +516,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         document.body
       )}
 
-      {/* Painel de Notificações do Sistema */}
-      {isNotificationsOpen && createPortal(
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 100000,
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-          display: 'flex', justifyContent: 'flex-end', animation: 'fadeIn 0.3s ease-out'
-        }} onClick={() => setIsNotificationsOpen(false)}>
-          <div 
-            style={{
-              width: '100%', maxWidth: '400px', height: '100%',
-              background: 'hsl(var(--card))', borderLeft: '1px solid hsl(var(--border-light))',
-              display: 'flex', flexDirection: 'column', padding: '1.5rem',
-              boxShadow: '-10px 0 30px rgba(0,0,0,0.5)',
-              animation: 'slideIn 0.3s ease-out'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <style>{`
-              @keyframes slideIn {
-                from { transform: translateX(100%); }
-                to { transform: translateX(0); }
-              }
-            `}</style>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <Bell size={24} color="hsl(var(--primary))" />
-                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>Notificações</h3>
-              </div>
-              <button 
-                onClick={() => setIsNotificationsOpen(false)}
-                style={{ background: 'hsla(var(--primary), 0.1)', border: 'none', borderRadius: '8px', padding: '6px', cursor: 'pointer', color: 'hsl(var(--primary))' }}
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {notifications.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '4rem 2rem', color: 'hsl(var(--text-muted))' }}>
-                  <Bell size={48} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-                  <p>Nenhuma notificação por enquanto.</p>
-                </div>
-              ) : (
-                notifications.map(notif => (
-                  <div key={notif.id} style={{
-                    padding: '1rem', background: notif.read ? 'transparent' : 'hsla(var(--primary), 0.05)',
-                    borderRadius: '12px', border: '1px solid hsl(var(--border-light))',
-                    position: 'relative', transition: 'all 0.2s'
-                  }}>
-                    <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', lineHeight: '1.4' }}>{notif.text}</p>
-                    <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>{notif.time}</span>
-                    {!notif.read && (
-                      <div style={{ position: 'absolute', top: '1rem', right: '1rem', width: '6px', height: '6px', background: 'hsl(var(--primary))', borderRadius: '50%' }} />
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-
-            {notifications.length > 0 && (
-              <button 
-                className="btn btn-secondary" 
-                style={{ marginTop: '1rem', width: '100%', padding: '0.75rem' }}
-                onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
-              >
-                Limpar alertas visuais
-              </button>
-            )}
-          </div>
-        </div>,
+      {/* Camada de controle de Brilho Global */}
+      {createPortal(
+        <div 
+          ref={overlayRef}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: `rgba(0, 0, 0, ${1 - brightness / 100})`,
+            pointerEvents: 'none',
+            zIndex: 9999999
+          }}
+        />,
         document.body
       )}
     </div>

@@ -4,8 +4,7 @@ import { BuscaUniversal } from '../components/BuscaUniversal';
 import { FilaDeEspera } from '../components/FilaDeEspera';
 import { PainelPsicologo } from '../components/PainelPsicologo';
 import { supabase } from '../lib/supabase';
-import { Users, ClipboardList, Calendar, ChevronRight, Clock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Users, ClipboardList, Calendar } from 'lucide-react';
 
 interface Stats {
   pacientesTotal: number;
@@ -108,59 +107,18 @@ export const Dashboard: React.FC = () => {
         />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '2rem', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
+        <BuscaUniversal />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          <BuscaUniversal />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', width: '100%' }}>
+          {viewMode === 'recepcao' || viewMode === 'admin' ? (
+            <FilaDeEspera />
+          ) : null}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {viewMode === 'recepcao' || viewMode === 'admin' ? (
-              <FilaDeEspera isCompact />
-            ) : null}
-
-            {viewMode === 'psicologo' || viewMode === 'admin' ? (
-              <PainelPsicologo />
-            ) : null}
-          </div>
+          {viewMode === 'psicologo' || viewMode === 'admin' ? (
+            <PainelPsicologo />
+          ) : null}
         </div>
-
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', fontSize: '1.1rem' }}>
-            <Clock size={20} color="hsl(var(--primary))" /> Recém Atendidos
-          </h3>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {stats.recentes.length === 0 ? (
-              <div className="text-center" style={{ padding: '1rem' }}>
-                <p className="text-muted" style={{ fontSize: '0.85rem' }}>Nenhum atendimento recente.</p>
-              </div>
-            ) : (
-              stats.recentes.map((item: any) => (
-                <Link key={item.id} to={`/paciente/${item.paciente_id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div className="list-item-hover" style={{
-                    padding: '0.85rem', borderRadius: '12px', background: 'hsla(var(--bg-main), 0.4)',
-                    border: '1px solid hsl(var(--border-light))', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                  }}>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.9rem', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                        {item.paciente?.nome || 'Paciente'}
-                      </div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>{new Date(item.data_atendimento).toLocaleDateString()}</div>
-                    </div>
-                    <ChevronRight size={16} color="hsl(var(--primary))" style={{ flexShrink: 0 }} />
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-
-          <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-light))' }}>
-            <Link to="/pacientes" className="text-sm" style={{ color: 'hsl(var(--primary))', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Ver todos os pacientes <ChevronRight size={14} />
-            </Link>
-          </div>
-        </div>
-
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Agendamento } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Activity, CheckCircle2 } from 'lucide-react';
+import { User, Activity, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -11,6 +11,7 @@ export const PainelPsicologo: React.FC = () => {
   const navigate = useNavigate();
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   useEffect(() => {
     if (profile) carregarAgenda();
@@ -86,7 +87,7 @@ export const PainelPsicologo: React.FC = () => {
         <p className="text-muted text-sm">Nenhum paciente marcado para hoje.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {agendamentos.map(agenda => (
+          {(mostrarTodos ? agendamentos : agendamentos.slice(0, 2)).map(agenda => (
             <div key={agenda.id} style={{
               padding: '1rem',
               border: '1px solid',
@@ -147,6 +148,29 @@ export const PainelPsicologo: React.FC = () => {
               </div>
             </div>
           ))}
+          {agendamentos.length > 2 && (
+            <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-light))' }}>
+              <button 
+                onClick={() => setMostrarTodos(!mostrarTodos)}
+                style={{ 
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'hsl(var(--primary))', 
+                  fontWeight: 700, 
+                  cursor: 'pointer',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.5rem',
+                  padding: '0.5rem 0'
+                }}>
+                {mostrarTodos ? (
+                  <>Menos pacientes <ChevronUp size={16} /></>
+                ) : (
+                  <>Ver todos os pacientes do dia ({agendamentos.length}) <ChevronDown size={16} /></>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
