@@ -11,6 +11,7 @@ import { Prontuarios } from './pages/Prontuarios';
 import { Atendimentos } from './pages/Atendimentos';
 import { AgendarAtendimento } from './pages/AgendarAtendimento';
 import { SalaEspera } from './pages/SalaEspera';
+import { Financeiro } from './pages/Financeiro';
 import { Layout } from './components/Layout';
 // Trigger HMR re-render
 
@@ -109,6 +110,16 @@ function App() {
               <PrivateRoute>
                 <Layout>
                   <SalaEspera />
+                </Layout>
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/financeiro" 
+            element={
+              <PrivateRoute>
+                <Layout>
+                  <Financeiro />
                 </Layout>
               </PrivateRoute>
             } 

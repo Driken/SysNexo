@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, LayoutDashboard, Settings, Activity, Menu, Sun, Moon, Bell, Users, ChevronDown, ChevronRight, FileText, Contact2, Search, Clock } from 'lucide-react';
+import { LogOut, LayoutDashboard, Settings, Activity, Menu, Sun, Moon, Bell, Users, ChevronDown, ChevronRight, FileText, Contact2, Search, Clock, DollarSign } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { BuscaUniversal } from './BuscaUniversal';
 import { createPortal } from 'react-dom';
@@ -254,15 +254,27 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     marginTop: '0.25rem', paddingLeft: isCollapsed ? '0' : '1.5rem',
                     animation: 'fadeIn 0.2s ease-out'
                   }}>
-                    <Link
-                      to="/usuarios"
-                      className={`nav-item ${location.pathname === '/usuarios' ? 'active' : ''}`}
-                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem', width: '100%', flexDirection: 'row' }}
-                      title="Equipe e Acessos"
-                    >
-                      <Users size={18} />
-                      {!isCollapsed && <span className="nav-label">Usuários</span>}
-                    </Link>
+                      <Link
+                        to="/usuarios"
+                        className={`nav-item ${location.pathname === '/usuarios' ? 'active' : ''}`}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem', width: '100%', flexDirection: 'row' }}
+                        title="Equipe e Acessos"
+                      >
+                        <Users size={18} />
+                        {!isCollapsed && <span className="nav-label">Usuários</span>}
+                      </Link>
+
+                      {profile?.role === 'admin' && (
+                        <Link
+                          to="/financeiro"
+                          className={`nav-item ${location.pathname === '/financeiro' ? 'active' : ''}`}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem', width: '100%', flexDirection: 'row' }}
+                          title="Gestão Financeira"
+                        >
+                          <DollarSign size={18} />
+                          {!isCollapsed && <span className="nav-label">Financeiro</span>}
+                        </Link>
+                      )}
 
                   </div>
                 )}
