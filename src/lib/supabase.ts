@@ -9,6 +9,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Cliente secundário para cadastro de usuários (não substitui a sessão do admin logado)
+export const supabaseAdminAuth = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false
+  }
+});
 export type UserRole = 'admin' | 'recepcao' | 'psicologo';
 
 export interface Profile {

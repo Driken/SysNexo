@@ -190,18 +190,7 @@ export const Login: React.FC = () => {
       <div className="auth-form-container glass-card" style={{ position: 'relative' }}>
         
         {/* Robozinho Interativo */}
-        <div style={{
-          position: 'absolute', top: '-110px', right: '-40px', zIndex: 10,
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-          animation: 'floatRobot 3s infinite ease-in-out',
-          transition: 'all 0.3s'
-        }}>
-          <style>{`
-            @keyframes floatRobot {
-              0%, 100% { transform: translateY(0); }
-              50% { transform: translateY(-8px); }
-            }
-          `}</style>
+        <div className="robot-container">
           <div style={{
             background: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--primary))',
             padding: '12px 18px', borderRadius: '20px 20px 0 20px',

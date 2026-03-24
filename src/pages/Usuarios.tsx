@@ -85,7 +85,7 @@ export const Usuarios: React.FC = () => {
 
       const { error } = user.role === 'paciente'
         ? await supabase.rpc('admin_delete_paciente', { target_id: user.id })
-        : await supabase.from('profiles').delete().eq('id', user.id);
+        : await supabase.rpc('admin_delete_user', { target_user_id: user.id });
 
       if (error) {
         if (error.code === '23503') {

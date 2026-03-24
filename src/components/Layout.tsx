@@ -23,6 +23,31 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const overlayRef = useRef<HTMLDivElement>(null);
   const brightnessTextRef = useRef<HTMLSpanElement>(null);
   const [brightness, setBrightness] = useState<number>(() => Number(localStorage.getItem('theme-brightness')) || 100);
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  const getSeenCount = () => {
+    const val = localStorage.getItem('ctrlK_tutorial_seen');
+    if (val === 'true') return 1;
+    const count = parseInt(val || '0', 10);
+    return isNaN(count) ? 2 : count;
+  };
+
+  useEffect(() => {
+    if (getSeenCount() < 2) {
+      const timer = setTimeout(() => setShowTutorial(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isSearchOpen) {
+      const current = getSeenCount();
+      if (current < 2) {
+        localStorage.setItem('ctrlK_tutorial_seen', (current + 1).toString());
+        setShowTutorial(false);
+      }
+    }
+  }, [isSearchOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -41,7 +66,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsSearchOpen(prev => !prev);
       }
@@ -180,7 +205,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           style={{
             justifyContent: isCollapsed ? 'center' : 'flex-start',
             marginBottom: '1.5rem',
-            margin: '0 -0.5rem 1.5rem -0.5rem'
+            margin: isCollapsed ? '0 0 1.5rem 0' : '0 -0.5rem 1.5rem -0.5rem'
           }}
         >
           <div translate="no" className="avatar-sm notranslate">
@@ -211,7 +236,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     if (item.action === 'openSettings') setIsSettingsOpen(!isSettingsOpen);
                   }}
                   title={isCollapsed ? item.name : undefined}
-                  style={item.action === 'openSettings' ? { justifyContent: 'space-between', paddingRight: '0.5rem' } : undefined}
+                  style={item.action === 'openSettings' && !isCollapsed ? { justifyContent: 'space-between', paddingRight: '0.5rem' } : undefined}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     {item.icon}
@@ -463,12 +488,69 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.35rem 0.75rem',
                   background: 'hsla(var(--primary), 0.1)', borderRadius: '8px', fontSize: '0.7rem', color: 'hsl(var(--primary))',
                   fontWeight: 800, border: '1px solid hsla(var(--primary), 0.2)', cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  transition: 'all 0.2s', position: 'relative'
                 }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <Search size={14} /> BUSCA <span style={{ opacity: 0.6, fontSize: '0.6rem', marginLeft: '0.2rem' }}>CTRL + K</span>
+                
+                {/* Tutorial Interativo do Ctrl+K posicionado saindo do botão */}
+                {showTutorial && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 15px)', right: '0',
+                    backgroundColor: 'hsl(var(--primary))', color: 'white',
+                    padding: '1rem', borderRadius: '12px',
+                    boxShadow: '0 10px 35px rgba(0,0,0,0.3)', zIndex: 999999,
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                    animation: 'slideDownFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                    width: '300px', cursor: 'default'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  >
+                    <style>{`
+                      @keyframes slideDownFadeIn {
+                        0% { opacity: 0; transform: translateY(-10px); }
+                        100% { opacity: 1; transform: translateY(0); }
+                      }
+                    `}</style>
+                    {/* Triângulo do tooltip apontando pro botão */}
+                    <div style={{
+                      position: 'absolute', top: '-8px', right: '40px',
+                      width: '0', height: '0',
+                      borderLeft: '8px solid transparent',
+                      borderRight: '8px solid transparent',
+                      borderBottom: '8px solid hsl(var(--primary))'
+                    }}></div>
+                    
+                    <div style={{ color: 'white', marginTop: '2px' }}>
+                      <Search size={22} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '4px', textTransform: 'none', lineHeight: 1.2 }}>Dica rápida!</div>
+                      <div style={{ fontSize: '0.8rem', opacity: 0.9, lineHeight: 1.4, fontWeight: 500, textTransform: 'none' }}>
+                        Pressione <kbd style={{ background: 'rgba(0,0,0,0.3)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)'}}>CTRL + K</kbd> para buscar pacientes rapidamente.
+                      </div>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowTutorial(false);
+                        const current = getSeenCount();
+                        localStorage.setItem('ctrlK_tutorial_seen', (current + 1).toString());
+                      }}
+                      style={{ 
+                        background: 'transparent', border: 'none', color: 'white', 
+                        cursor: 'pointer', padding: '0.2rem',
+                        opacity: 0.7, fontWeight: 800, fontSize: '1rem',
+                        marginTop: '-4px', marginRight: '-4px'
+                      }}
+                      title="Fechar dica"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
               <span className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 700, opacity: 0.8 }}>v1.2.0</span>
             </div>
@@ -487,13 +569,22 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
-            zIndex: 99999, display: 'flex', justifyContent: 'center', padding: '10vh 1rem 0 1rem'
+            zIndex: 99999, display: 'flex', justifyContent: 'center', padding: '10vh 1rem 10vh 1rem',
+            cursor: 'pointer', overflowY: 'auto'
           }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsSearchOpen(false);
           }}
         >
-          <div style={{ width: '100%', maxWidth: '750px', animation: 'fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          <div 
+            onClick={(e) => e.stopPropagation()} // Garante que o clique interno não feche a modal
+            style={{ 
+              width: '100%', maxWidth: '750px', 
+              height: 'fit-content', // Garante que a caixa não se expanda no eixo Y e bloqueie o clique fora
+              cursor: 'default',
+              animation: 'fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1)' 
+            }}
+          >
             <style>{`
                @keyframes fadeInScale {
                  from { opacity: 0; transform: scale(0.95); }
@@ -507,7 +598,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               marginTop: '1.5rem', textAlign: 'center', color: 'rgba(255, 255, 255, 0.7)',
               fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1.5rem'
             }}>
-              <span><kbd style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>ESC</kbd> para fechar</span>
+              <span>Clique fora ou <kbd style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>ESC</kbd> para fechar</span>
               <span style={{ opacity: 0.5 }}>|</span>
               <span>Atalho Global: <kbd style={{ background: 'rgba(255,255,255,0.2)', padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>CTRL + K</kbd></span>
             </div>
@@ -515,7 +606,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </div>,
         document.body
       )}
-
 
       {/* Camada de controle de Brilho Global */}
       {createPortal(

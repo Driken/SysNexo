@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdminAuth } from '../lib/supabase';
 import { Save, ArrowLeft, Trash2, UserMinus, UserCheck, AlertTriangle, Key, Eye, EyeOff, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
@@ -142,7 +142,7 @@ export const UserForm: React.FC<Props> = ({
         onSave();
       }
     } else {
-      const { error } = await supabase.auth.signUp({
+      const { error } = await supabaseAdminAuth.auth.signUp({
         email,
         password,
         options: {

@@ -1,9 +1,20 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
 
 @keyframes pulse {
-  0% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(0.98); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 :root {
@@ -114,6 +125,9 @@ a {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  padding: 120px 1.5rem 2rem 1.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: radial-gradient(circle at top right, hsl(var(--primary-light)), hsl(var(--bg-main))),
     linear-gradient(to bottom left, rgba(255, 255, 255, 0), hsl(var(--bg-main)));
 }
@@ -124,7 +138,45 @@ a {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  margin: auto;
 }
+
+@media (max-width: 480px) {
+  .auth-form-container {
+    max-width: 100%;
+  }
+  .glass-card {
+    padding: 1.5rem;
+  }
+}
+
+.robot-container {
+  position: absolute;
+  top: -110px;
+  right: -40px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: floatRobot 3s infinite ease-in-out;
+  transition: all 0.3s;
+}
+
+@keyframes floatRobot {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@media (max-width: 480px) {
+  .robot-container {
+    right: 0px;
+    transform: scale(0.85);
+    transform-origin: right bottom;
+    top: -95px;
+  }
+}
+
+
 
 .brand-title {
   font-size: 2.5rem;
@@ -543,9 +595,11 @@ select.form-input option {
   0% {
     box-shadow: 0 0 0 0 hsla(var(--primary), 0.6);
   }
+
   70% {
     box-shadow: 0 0 0 10px hsla(var(--primary), 0);
   }
+
   100% {
     box-shadow: 0 0 0 0 hsla(var(--primary), 0);
   }
