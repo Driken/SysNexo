@@ -82,7 +82,7 @@ export const Usuarios: React.FC = () => {
 
   const handleExcluir = async (user: any) => {
     if (window.confirm(`ATENÇÃO: Deseja REALMENTE excluir ${user.role === 'paciente' ? 'o cadastro do paciente' : 'o perfil de'} ${user.full_name}? Esta ação não pode ser desfeita.`)) {
-      
+
       const { error } = user.role === 'paciente'
         ? await supabase.rpc('admin_delete_paciente', { target_id: user.id })
         : await supabase.from('profiles').delete().eq('id', user.id);
@@ -95,14 +95,14 @@ export const Usuarios: React.FC = () => {
         }
       } else {
         toast.success(`${user.role === 'paciente' ? 'Paciente' : 'Perfil'} excluído com sucesso!`);
-        
+
         // Atualização Otimista (remove da tela na hora)
         setEquipe(prev => prev.filter(m => m.id !== user.id));
         setPacientes(prev => prev.filter(p => p.id !== user.id));
-        
+
         carregarEquipe();
         carregarPacientes();
-        
+
         // Limpa seleção e fecha modais se estiverem abertos
         setSelectedUser(null);
         setIsModalOpen(false);
@@ -279,7 +279,7 @@ export const Usuarios: React.FC = () => {
 
                     {/* Coluna 1: Nome */}
                     <div style={{ flex: 2, display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <div className="avatar-sm" style={{
+                      <div translate="no" className="avatar-sm notranslate" style={{
                         width: '36px', height: '36px', fontSize: '0.9rem',
                         filter: u.is_active === false ? 'grayscale(1)' : 'none',
                         flexShrink: 0
@@ -302,7 +302,7 @@ export const Usuarios: React.FC = () => {
 
                     {/* Coluna 3: Função */}
                     <div style={{ width: '120px', textAlign: 'center' }}>
-                      <span style={{
+                      <span translate="no" className="notranslate" style={{
                         fontSize: '0.7rem', fontWeight: 700, padding: '0.3rem 0.6rem', borderRadius: '12px',
                         background: u.role === 'admin' ? '#fee2e2' : u.role === 'psicologo' ? '#e0e7ff' : u.role === 'recepcao' ? '#dcfce7' : 'hsla(var(--primary), 0.1)',
                         color: u.role === 'admin' ? '#b91c1c' : u.role === 'psicologo' ? '#4338ca' : u.role === 'recepcao' ? '#15803d' : 'hsl(var(--primary))',

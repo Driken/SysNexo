@@ -183,7 +183,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             margin: '0 -0.5rem 1.5rem -0.5rem'
           }}
         >
-          <div className="avatar-sm">
+          <div translate="no" className="avatar-sm notranslate">
             {displayName[0].toUpperCase()}
           </div>
           {!isCollapsed && (
