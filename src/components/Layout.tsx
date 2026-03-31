@@ -628,20 +628,28 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               <div style={{ position: 'relative' }} ref={notifPanelRef}>
                 <button
                   onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                  className={`water-drop-hover ${notifications.filter(n => !n.read).length > 0 ? 'notif-arrival-pulse' : ''}`}
                   style={{
                     background: 'hsl(var(--bg-card))', border: 'none', cursor: 'pointer', display: 'flex',
-                    padding: '8px', borderRadius: '50%', boxShadow: 'var(--shadow-md)',
-                    position: 'relative'
+                    padding: '8px', borderRadius: '50%', boxShadow: 'hsla(var(--primary), 0.2) 0 4px 15px',
+                    position: 'relative',
+                    transition: 'all 0.3s'
                   }}
                   title="Ver Notificações"
                 >
                   <Bell size={18} color="hsl(var(--primary))" />
                   {notifications.filter(n => !n.read).length > 0 && (
                     <span style={{
-                      position: 'absolute', top: -1, right: -1,
-                      width: '10px', height: '10px', background: 'hsl(var(--primary))',
-                      borderRadius: '50%', border: '2px solid hsl(var(--card))'
-                    }} />
+                      position: 'absolute', top: '-4px', right: '-4px',
+                      minWidth: '18px', height: '18px', background: 'hsl(var(--primary))',
+                      borderRadius: '10px', border: '2px solid hsl(var(--bg-card))',
+                      color: 'white', fontSize: '0.65rem', fontWeight: 900,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      padding: '0 4px',
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                    }}>
+                      {notifications.filter(n => !n.read).length > 99 ? '99+' : notifications.filter(n => !n.read).length}
+                    </span>
                   )}
                 </button>
 

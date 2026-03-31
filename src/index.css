@@ -619,3 +619,36 @@ select.form-input option {
   border-color: hsl(var(--primary)) !important;
   box-shadow: var(--shadow-sm);
 }
+
+/* Notification Animations */
+@keyframes waterDrop {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0.4); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 10px hsla(var(--primary), 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0); }
+}
+
+@keyframes notificationShake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(15deg); }
+  40% { transform: rotate(-15deg); }
+  60% { transform: rotate(10deg); }
+  80% { transform: rotate(-10deg); }
+}
+
+.water-drop-hover:hover {
+  animation: waterDrop 1s ease-out infinite;
+}
+
+@keyframes intensePulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0.7); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 10px hsla(var(--primary), 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0); }
+}
+
+.notif-arrival-pulse {
+  animation: intensePulse 1.8s infinite;
+}
+
+.notif-shake {
+  animation: notificationShake 0.5s ease-in-out;
+}
