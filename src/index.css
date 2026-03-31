@@ -640,9 +640,9 @@ select.form-input option {
 }
 
 @keyframes intensePulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0.7); }
-  50% { transform: scale(1.1); box-shadow: 0 0 0 10px hsla(var(--primary), 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 hsla(var(--primary), 0); }
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 .notif-arrival-pulse {

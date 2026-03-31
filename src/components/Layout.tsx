@@ -641,12 +641,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   {notifications.filter(n => !n.read).length > 0 && (
                     <span style={{
                       position: 'absolute', top: '-4px', right: '-4px',
-                      minWidth: '18px', height: '18px', background: 'hsl(var(--primary))',
+                      minWidth: '18px', height: '18px', background: '#ef4444',
                       borderRadius: '10px', border: '2px solid hsl(var(--bg-card))',
                       color: 'white', fontSize: '0.65rem', fontWeight: 900,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       padding: '0 4px',
-                      boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+                      boxShadow: '0 2px 5px rgba(239, 68, 68, 0.4)'
                     }}>
                       {notifications.filter(n => !n.read).length > 99 ? '99+' : notifications.filter(n => !n.read).length}
                     </span>
