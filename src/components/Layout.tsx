@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, LayoutDashboard, Settings, Activity, Menu, Sun, Moon, Bell, Users, ChevronDown, ChevronRight, FileText, Contact2, Search, Clock, DollarSign, Plus, PieChart, Truck, Building2 } from 'lucide-react';
+import { LogOut, Activity, Menu, Sun, Moon, Bell, Users, ChevronDown, ChevronRight, Settings, Search, LayoutDashboard, Clock, Contact2, FileText, DollarSign, Plus, PieChart, Truck, Building2, Trash2 } from 'lucide-react';
 import { TransactionModal } from './TransactionModal';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BuscaUniversal } from './BuscaUniversal';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const navigate = useNavigate();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -16,7 +17,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [notifications, setNotifications] = useState<{ id: string, text: string, time: string, read: boolean, title: string, tipo: string }[]>([]);
+  const [notifications, setNotifications] = useState<{ id: string, text: string, time: string, read: boolean, title: string, tipo: string, link?: string }[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [showAdminResetModal, setShowAdminResetModal] = useState(false);
   const [resetData, setResetData] = useState({ email: '', password: 'Abc12345', userId: '' });
@@ -29,6 +30,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const [brightness, setBrightness] = useState<number>(() => Number(localStorage.getItem('theme-brightness')) || 100);
   const [isFinanceOpen, setIsFinanceOpen] = useState(false);
   const [isNewTransactionModalOpen, setIsNewTransactionModalOpen] = useState(false);
+  const [selectedNotifications, setSelectedNotifications] = useState<string[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
   const getSeenCount = () => {
@@ -85,7 +88,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSearchOpen]);
 
-  // Caso o Supabase não tenha registrado um nome, ele usa "Usuário UUID", então tratamos isso na interface:
   const formatName = (name: string) => {
     if (!name || name.includes('-')) return 'Usuário';
     const parts = name.trim().split(/\s+/);
@@ -113,7 +115,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     await signOut();
   };
 
-  // Notificações em tempo real (Persistentes)
   useEffect(() => {
     if (!profile?.id) return;
 
@@ -129,10 +130,11 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         setNotifications(data.map(n => ({
           id: n.id,
           text: n.mensagem,
-          time: new Date(n.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+          time: new Date(n.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/,?\s+/, ', '),
           read: n.lido,
           title: n.titulo,
-          tipo: n.tipo
+          tipo: n.tipo,
+          link: n.link
         })));
       }
     };
@@ -153,13 +155,25 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           const newNotif = {
             id: payload.new.id,
             text: payload.new.mensagem,
-            time: new Date(payload.new.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+            time: new Date(payload.new.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(/,?\s+/, ', '),
             read: payload.new.lido,
             title: payload.new.titulo,
-            tipo: payload.new.tipo
+            tipo: payload.new.tipo,
+            link: payload.new.link
           };
 
-          toast.info(newNotif.title, { description: newNotif.text });
+          toast(newNotif.text, {
+            description: newNotif.time,
+            action: (newNotif.link && viewMode === 'psicologo') ? {
+              label: newNotif.link === '/sala-espera' ? 'Ir para Sala de Espera' : 'Acessar Agora',
+              onClick: () => {
+                navigate(newNotif.link!);
+                supabase.from('notificacoes').update({ lido: true }).eq('id', newNotif.id);
+                setNotifications(prev => prev.map(n => n.id === newNotif.id ? { ...n, read: true } : n));
+              }
+            } : undefined
+          });
+
           setNotifications(prev => [newNotif, ...prev].slice(0, 20));
         }
       )
@@ -195,6 +209,27 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     }
   };
 
+  const deleteSelectedNotifications = async () => {
+    if (selectedNotifications.length === 0) return;
+    const { error } = await supabase
+      .from('notificacoes')
+      .delete()
+      .in('id', selectedNotifications);
+
+    if (!error) {
+      setNotifications(prev => prev.filter(n => !selectedNotifications.includes(n.id)));
+      setSelectedNotifications([]);
+      setIsSelectionMode(false);
+    }
+  };
+
+  const toggleSelectNotification = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedNotifications(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
   const handleNotificationClick = async (notif: any) => {
     if (notif.tipo === 'suporte') {
       const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
@@ -206,11 +241,18 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         setShowAdminResetModal(true);
         setIsNotificationsOpen(false);
 
-        // Marcar como lida automaticamente ao abrir o suporte
         await supabase.from('notificacoes').update({ lido: true }).eq('id', notif.id);
         setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+        return;
       }
-    } else if (!notif.read) {
+    }
+
+    if (notif.link) {
+      navigate(notif.link);
+      setIsNotificationsOpen(false);
+    }
+
+    if (!notif.read) {
       await supabase.from('notificacoes').update({ lido: true }).eq('id', notif.id);
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
     }
@@ -221,7 +263,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     setIsResetting(true);
 
     try {
-      // 1. Achar o ID do usuário pelo e-mail
       const { data: userData, error: userError } = await supabase
         .from('profiles')
         .select('id')
@@ -232,7 +273,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         throw new Error('Usuário não encontrado no sistema.');
       }
 
-      // 2. Chamar o RPC de reset
       const { error: resetError } = await supabase.rpc('admin_reset_password', {
         target_user_id: userData.id,
         new_password: resetData.password
@@ -280,7 +320,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   return (
     <div className="layout-container">
-      {/* Sidebar Lateral */}
       <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header" style={{ justifyContent: isCollapsed ? 'center' : 'space-between' }}>
           <div className="flex-row" style={{ display: isCollapsed ? 'none' : 'flex' }}>
@@ -352,7 +391,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   )}
                 </Link>
 
-                {/* Submenu Financeiro */}
                 {item.action === 'openFinance' && isFinanceOpen && (
                   <div style={{
                     display: 'flex', flexDirection: 'column', gap: '0.25rem',
@@ -386,7 +424,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   </div>
                 )}
 
-                {/* Submenu Inline para Configurações */}
                 {item.action === 'openSettings' && isSettingsOpen && (
                   <div style={{
                     display: 'flex', flexDirection: 'column', gap: '0.25rem',
@@ -484,15 +521,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         )}
       </aside>
 
-      {/* Conteúdo Principal (Direita) */}
       <main className="layout-main">
-        {/* Topbar Simplificada Flutuante */}
         <header className="topbar-modern">
           <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'hsl(var(--text-main))' }}>
             {location.pathname === '/dashboard' ? 'Resumo de Atividades' : location.pathname.includes('/paciente/') ? 'Ficha de Paciente' : 'Sistema de Gestão'}
           </div>
           <div className="flex-row" style={{ gap: '0.75rem' }}>
-            {/* Seletor de Modo Admin */}
             {profile?.role === 'admin' && (
               <div
                 style={{
@@ -545,7 +579,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     display: 'flex', alignItems: 'center', gap: '1.25rem',
                     whiteSpace: 'nowrap'
                   }}>
-                    {/* Botões de Modo */}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
                         onClick={() => setIsDarkMode(false)}
@@ -575,7 +608,6 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
                     <div style={{ width: '1px', height: '24px', background: 'hsl(var(--border-light))', opacity: 0.5 }} />
 
-                    {/* Controle de Brilho */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--text-main))' }}>Brilho: <span ref={brightnessTextRef} style={{ color: 'hsl(var(--primary))' }}>{brightness}%</span></span>
                       <input
@@ -626,31 +658,65 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>Notificações ({notifications.length})</span>
                       {notifications.length > 0 && (
                         <div style={{ display: 'flex', gap: '0.75rem' }}>
-                          <button
-                            onClick={markAllAsRead}
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--primary))', fontWeight: 600, padding: 0 }}
-                            title="Marcar todas como lidas"
-                          >
-                            Lidas
-                          </button>
-                          <button
-                            onClick={clearNotifications}
-                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, padding: 0 }}
-                            title="Apagar todas as notificações"
-                          >
-                            Apagar
-                          </button>
+                          {!isSelectionMode ? (
+                            <>
+                              <button
+                                onClick={markAllAsRead}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--primary))', fontWeight: 600, padding: 0 }}
+                                title="Marcar todas como lidas"
+                              >
+                                Lidas
+                              </button>
+                              <button
+                                onClick={clearNotifications}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, padding: 0 }}
+                                title="Apagar todas as notificações"
+                              >
+                                Apagar
+                              </button>
+                              <button
+                                onClick={() => setIsSelectionMode(true)}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, padding: 0 }}
+                                title="Selecionar notificações para excluir"
+                              >
+                                Selecionar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={deleteSelectedNotifications}
+                                disabled={selectedNotifications.length === 0}
+                                style={{ 
+                                  background: 'transparent', border: 'none', cursor: selectedNotifications.length > 0 ? 'pointer' : 'default', 
+                                  fontSize: '0.7rem', color: selectedNotifications.length > 0 ? 'hsl(var(--destructive))' : 'hsl(var(--text-muted))', 
+                                  fontWeight: 600, padding: 0, opacity: selectedNotifications.length > 0 ? 1 : 0.5 
+                                }}
+                              >
+                                Excluir ({selectedNotifications.length})
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setIsSelectionMode(false);
+                                  setSelectedNotifications([]);
+                                }}
+                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, padding: 0 }}
+                              >
+                                Cancelar
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '420px', overflowY: 'auto', paddingRight: '4px' }} className="custom-scrollbar">
                       {notifications.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>
                           Nenhuma notificação por enquanto.
                         </div>
                       ) : (
-                        notifications.slice(0, 5).map(notif => (
+                        notifications.slice(0, 20).map(notif => (
                           <div
                             key={notif.id}
                             onClick={() => handleNotificationClick(notif)}
@@ -660,24 +726,52 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                               borderRadius: '8px',
                               border: notif.read ? '1px solid hsl(var(--border-light))' : '1px solid hsla(var(--primary), 0.2)',
                               position: 'relative',
-                              cursor: notif.tipo === 'suporte' ? 'pointer' : 'default',
+                              cursor: (notif.tipo === 'suporte' || notif.link) ? 'pointer' : 'default',
                               transition: 'all 0.2s',
-                              borderLeft: notif.tipo === 'suporte' ? '3px solid hsl(var(--primary))' : undefined
+                              borderLeft: '3px solid hsl(var(--primary))'
                             }}
-                            className={notif.tipo === 'suporte' ? 'hover-pointer' : ''}
                             onMouseEnter={(e) => {
-                              if (notif.tipo === 'suporte') e.currentTarget.style.transform = 'translateX(3px)';
+                              if (notif.link || notif.tipo === 'suporte') {
+                                e.currentTarget.style.backgroundColor = 'hsla(var(--primary), 0.08)';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                              }
                             }}
                             onMouseLeave={(e) => {
-                              if (notif.tipo === 'suporte') e.currentTarget.style.transform = 'translateX(0)';
+                              if (notif.link || notif.tipo === 'suporte') {
+                                e.currentTarget.style.backgroundColor = notif.read ? 'transparent' : 'hsla(var(--primary), 0.05)';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }
                             }}
                           >
-                            <div style={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', color: 'hsl(var(--primary))', marginBottom: '0.15rem', display: 'flex', justifyContent: 'space-between' }}>
-                              {notif.title}
-                              {notif.tipo === 'suporte' && <Settings size={12} />}
+                            <div style={{ display: 'flex', gap: isSelectionMode ? '0.75rem' : '0', alignItems: 'flex-start' }}>
+                              {isSelectionMode && (
+                                <div 
+                                  onClick={(e) => toggleSelectNotification(notif.id, e)}
+                                  style={{ 
+                                    marginTop: '0.2rem',
+                                    width: '16px', height: '16px', 
+                                    borderRadius: '4px', border: `1px solid ${selectedNotifications.includes(notif.id) ? 'hsl(var(--primary))' : 'hsl(var(--border-light))'}`,
+                                    background: selectedNotifications.includes(notif.id) ? 'hsl(var(--primary))' : 'transparent',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    cursor: 'pointer', transition: 'all 0.2s'
+                                  }}
+                                >
+                                  {selectedNotifications.includes(notif.id) && <div style={{ width: '8px', height: '8px', borderRadius: '1px', background: 'white' }} />}
+                                </div>
+                              )}
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', color: 'hsl(var(--primary))', marginBottom: '0.15rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  {notif.title}
+                                  {notif.tipo === 'suporte' && <Settings size={12} />}
+                                </div>
+                                <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', lineHeight: '1.4', color: 'hsl(var(--text-main))', whiteSpace: 'normal', wordBreak: 'break-word' }}>{notif.text}</p>
+                                
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                                  <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>{notif.time}</span>
+                                </div>
+                              </div>
                             </div>
-                            <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', lineHeight: '1.4', color: 'hsl(var(--text-main))', whiteSpace: 'normal', wordBreak: 'break-word' }}>{notif.text}</p>
-                            <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>{notif.time}</span>
+
                             {!notif.read && (
                               <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', width: '6px', height: '6px', background: 'hsl(var(--primary))', borderRadius: '50%' }} />
                             )}

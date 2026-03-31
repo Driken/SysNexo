@@ -29,11 +29,11 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
   const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, '');
     if (val.length > 11) val = val.slice(0, 11);
-    
+
     val = val.replace(/(\d{3})(\d)/, '$1.$2');
     val = val.replace(/(\d{3})(\d)/, '$1.$2');
     val = val.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-    
+
     setCpf(val);
   };
 
@@ -53,17 +53,34 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
         }])
         .select()
         .single();
-      
+
       if (error) {
         if (error.code === '23505') {
           throw new Error('CPF ou Cartão SUS já cadastrado.');
         }
         throw error;
       }
-      
+
       toast.success('Paciente cadastrado com sucesso!');
       onSuccess(data as Paciente);
-      
+
+      // Criar notificação para administradores e recepção
+      const { data: staffMembers } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('role', ['admin', 'recepcao']);
+
+      if (staffMembers && staffMembers.length > 0) {
+        const notifs = staffMembers.map(staff => ({
+          perfil_id: staff.id,
+          titulo: 'Novo Paciente',
+          mensagem: `O paciente ${nome} foi cadastrado no sistema.`,
+          tipo: 'sistema',
+          lido: false
+        }));
+        await supabase.from('notificacoes').insert(notifs);
+      }
+
       // Limpa form
       setNome('');
       setCpf('');
@@ -92,24 +109,24 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
       zIndex: 9999,
       backdropFilter: 'blur(4px)'
     }}
-    onMouseDown={(e) => {
-      isMouseDownInside.current = modalContentRef.current?.contains(e.target as Node) || false;
-    }}
-    onMouseUp={(e) => {
-      if (e.target === e.currentTarget && !isMouseDownInside.current) {
-        onClose();
-      }
-      isMouseDownInside.current = false;
-    }}>
-      <div 
+      onMouseDown={(e) => {
+        isMouseDownInside.current = modalContentRef.current?.contains(e.target as Node) || false;
+      }}
+      onMouseUp={(e) => {
+        if (e.target === e.currentTarget && !isMouseDownInside.current) {
+          onClose();
+        }
+        isMouseDownInside.current = false;
+      }}>
+      <div
         ref={modalContentRef}
-        className="glass-card" 
-        style={{ 
-          width: '100%', 
-          maxWidth: '500px', 
-          maxHeight: '90vh', 
-          overflowY: 'auto', 
-          background: 'var(--bg-card)', 
+        className="glass-card"
+        style={{
+          width: '100%',
+          maxWidth: '500px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          background: 'var(--bg-card)',
           color: 'hsl(var(--text-main))',
           padding: '1.5rem',
           margin: '2rem auto'
@@ -135,7 +152,7 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
               <label className="input-label">CPF *</label>
               <input className="form-input" required value={cpf} onChange={handleCpfChange} placeholder="000.000.000-00" />
             </div>
-            
+
             <div className="input-group">
               <label className="input-label">Data de Nascimento *</label>
               <input className="form-input" type="date" required value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} />
@@ -147,10 +164,10 @@ export const PacienteModal: React.FC<PacienteModalProps> = ({ isOpen, onClose, o
             <input className="form-input" value={cartaoSus} onChange={e => setCartaoSus(e.target.value)} placeholder="Apenas números..." />
           </div>
 
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'flex-end', 
-            gap: '1rem', 
+          <div style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            gap: '1rem',
             marginTop: '2rem',
             paddingTop: '1.5rem',
             borderTop: '1px solid hsl(var(--border-light))'

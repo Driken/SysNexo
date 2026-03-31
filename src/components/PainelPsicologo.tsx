@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Agendamento } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { User, Activity, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react';
+import { User, Activity, CheckCircle2, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
@@ -11,7 +11,6 @@ export const PainelPsicologo: React.FC = () => {
   const navigate = useNavigate();
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(true);
-  const [mostrarTodos, setMostrarTodos] = useState(false);
 
   useEffect(() => {
     if (profile) carregarAgenda();
@@ -51,126 +50,145 @@ export const PainelPsicologo: React.FC = () => {
     if (!error) {
       toast.success('Atendimento iniciado!');
       carregarAgenda();
-      // Opcional: navegar para o prontuário
       navigate(`/paciente/${pacienteId}`);
     } else {
       toast.error('Erro ao iniciar atendimento');
     }
   };
 
-  const finalizarAtendimento = async (id: string) => {
-    const { error } = await supabase
-      .from('agendamentos')
-      .update({ 
-        status: 'Finalizado',
-        fim_atendimento: new Date().toISOString()
-      })
-      .eq('id', id);
-
-    if (!error) {
-      toast.success('Atendimento finalizado!');
-      carregarAgenda();
-    } else {
-      toast.error('Erro ao finalizar atendimento');
-    }
-  };
+  const sessoesPendentes = agendamentos.filter(a => a.status !== 'Finalizado');
+  const sessoesFinalizadas = agendamentos.filter(a => a.status === 'Finalizado');
 
   if (loading) return <div>Carregando sua agenda...</div>;
 
   return (
-    <div className="glass-card" style={{ flex: 1, borderLeft: '4px solid hsl(var(--primary))' }}>
-      <h3 className="flex-row" style={{ marginBottom: '1rem', color: 'hsl(var(--primary))' }}>
-        <Activity size={20} /> Meus Pacientes Hoje
-      </h3>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      
+      {/* SEÇÃO 1: FILA DE ATENDIMENTO */}
+      <div className="glass-card" style={{ flex: 1, borderLeft: '4px solid hsl(var(--primary))' }}>
+        <h3 className="flex-row" style={{ marginBottom: '1.5rem', color: 'hsl(var(--primary))' }}>
+          <Clock size={20} /> Fila de Atendimento (Ordem de Chegada)
+        </h3>
 
-      {agendamentos.length === 0 ? (
-        <p className="text-muted text-sm">Nenhum paciente marcado para hoje.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {(mostrarTodos ? agendamentos : agendamentos.slice(0, 2)).map(agenda => (
-            <div key={agenda.id} style={{
-              padding: '1rem',
-              border: '1px solid',
-              borderColor: agenda.status === 'Aguardando' ? 'hsl(var(--primary))' : 'hsl(var(--border-light))',
-              background: agenda.status === 'Aguardando' ? 'hsla(var(--primary), 0.05)' : 'transparent',
-              borderRadius: 'var(--radius-sm)'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{agenda.paciente?.nome || 'Desconhecido'}</h4>
-                  <p className="text-muted text-sm" style={{ margin: 0 }}>
-                    {new Date(agenda.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • Status: <strong>{agenda.status}</strong>
-                  </p>
+        {sessoesPendentes.length === 0 ? (
+          <p className="text-center" style={{ padding: '2rem', color: 'hsl(var(--text-muted))', border: '1px dashed hsl(var(--border-light))', borderRadius: '12px' }}>
+            Nenhum paciente aguardando no momento.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {sessoesPendentes.map((agenda, index) => (
+              <div key={agenda.id} style={{
+                padding: '1.25rem',
+                border: '1px solid',
+                borderColor: agenda.status === 'Aguardando' ? 'hsl(var(--primary))' : 'hsl(var(--border-light))',
+                background: agenda.status === 'Aguardando' ? 'hsla(var(--primary), 0.05)' : 'transparent',
+                borderRadius: 'var(--radius-md)',
+                position: 'relative'
+              }}>
+                <div style={{ position: 'absolute', top: '1rem', left: '-12px', width: '24px', height: '24px', background: 'hsl(var(--primary))', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '0.75rem', fontWeight: 800, border: '3px solid hsl(var(--bg-card))', boxShadow: '0 4px 10px rgba(0,0,0,0.3)' }}>
+                  {index + 1}
                 </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {(agenda.status === 'Aguardando' || agenda.status === 'Agendado') && (
-                    <button
-                      className="btn btn-primary pulse-btn"
-                      style={{ 
-                        padding: '0.6rem 1.5rem', 
-                        width: 'auto', 
-                        background: '#10b981', 
-                        borderColor: '#10b981',
-                        fontWeight: 800,
-                        fontSize: '0.95rem',
-                        boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)'
-                      }}
-                      onClick={() => aceitarAtendimento(agenda.id, agenda.paciente_id)}
-                    >
-                      <CheckCircle2 size={18} /> ACEITAR AGORA
-                    </button>
-                  )}
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '0.5rem' }}>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '1.2rem', color: 'hsl(var(--text-main))' }}>{agenda.paciente?.nome || 'Desconhecido'}</h4>
+                    <p className="text-muted text-sm" style={{ margin: '0.25rem 0 0 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Clock size={14} /> Chegada: {new Date(agenda.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} • 
+                      <span style={{ 
+                        color: agenda.status === 'Aguardando' ? 'hsl(var(--primary))' : '#10b981',
+                        fontWeight: 700 
+                      }}> Status: {agenda.status}</span>
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    {agenda.status === 'Aguardando' && (
+                      <button
+                        className="btn btn-primary pulse-btn"
+                        style={{ 
+                          padding: '0.7rem 1.75rem', 
+                          width: 'auto', 
+                          background: '#10b981', 
+                          border: 'none',
+                          fontWeight: 800,
+                          fontSize: '0.9rem',
+                          boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}
+                        onClick={() => aceitarAtendimento(agenda.id, agenda.paciente_id)}
+                      >
+                        <CheckCircle2 size={18} /> INICIAR SESSÃO
+                      </button>
+                    )}
 
-                  {agenda.status === 'Em Atendimento' && (
+                    {agenda.status === 'Em Atendimento' && (
+                      <button
+                        className="btn btn-secondary"
+                        style={{ 
+                          padding: '0.7rem 1.75rem', 
+                          width: 'auto', 
+                          borderColor: 'hsl(var(--primary))',
+                          color: 'hsl(var(--primary))',
+                          background: 'hsla(var(--primary), 0.1)',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}
+                        onClick={() => navigate(`/paciente/${agenda.paciente?.id}`)}
+                      >
+                        <Activity size={18} /> CONTINUAR PRONTUÁRIO
+                      </button>
+                    )}
                     <button
                       className="btn btn-secondary"
-                      style={{ 
-                        padding: '0.6rem 1.5rem', 
-                        width: 'auto', 
-                        borderColor: 'hsl(var(--primary))',
-                        color: 'hsl(var(--primary))',
-                        background: 'hsla(var(--primary), 0.05)',
-                        fontWeight: 700
-                      }}
-                      onClick={() => finalizarAtendimento(agenda.id)}
+                      style={{ padding: '0.5rem 1rem', width: 'auto', borderRadius: '8px' }}
+                      onClick={() => navigate(`/paciente/${agenda.paciente?.id}`)}
                     >
-                      Finalizar Sessão
+                      <User size={16} />
                     </button>
-                  )}
-                  <button
-                    className="btn btn-secondary"
-                    style={{ padding: '0.4rem 1rem', width: 'auto' }}
-                    onClick={() => navigate(`/paciente/${agenda.paciente?.id}`)}
-                  >
-                    <User size={16} style={{ marginRight: '0.3rem' }} /> Prontuário
-                  </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          {agendamentos.length > 2 && (
-            <div style={{ marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid hsl(var(--border-light))' }}>
-              <button 
-                onClick={() => setMostrarTodos(!mostrarTodos)}
-                style={{ 
-                  background: 'transparent',
-                  border: 'none',
-                  color: 'hsl(var(--primary))', 
-                  fontWeight: 700, 
-                  cursor: 'pointer',
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.5rem',
-                  padding: '0.5rem 0'
-                }}>
-                {mostrarTodos ? (
-                  <>Menos pacientes <ChevronUp size={16} /></>
-                ) : (
-                  <>Ver todos os pacientes do dia ({agendamentos.length}) <ChevronDown size={16} /></>
-                )}
-              </button>
-            </div>
-          )}
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* SEÇÃO 2: ATENDIMENTOS FINALIZADOS */}
+      {sessoesFinalizadas.length > 0 && (
+        <div className="glass-card" style={{ opacity: 0.8 }}>
+          <h3 className="flex-row" style={{ marginBottom: '1.5rem', color: 'hsl(var(--text-muted))' }}>
+            <CheckCircle2 size={20} /> Finalizados Hoje
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+            {sessoesFinalizadas.map(agenda => (
+              <div key={agenda.id} style={{
+                padding: '1rem',
+                background: 'hsla(var(--bg-main), 0.5)',
+                border: '1px solid hsl(var(--border-light))',
+                borderRadius: '12px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <div>
+                  <h5 style={{ margin: 0, color: 'hsl(var(--text-muted))' }}>{agenda.paciente?.nome}</h5>
+                  <span style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
+                    Concluído às {new Date(agenda.fim_atendimento || agenda.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '0.4rem 0.6rem', width: 'auto', fontSize: '0.75rem' }}
+                  onClick={() => navigate(`/paciente/${agenda.paciente?.id}`)}
+                >
+                  Ver Ficha
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

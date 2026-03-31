@@ -57,6 +57,31 @@ export const AgendarAtendimento: React.FC = () => {
 
     if (!error) {
       toast.success('Agendamento realizado com sucesso!');
+
+      // Criar Notificação de Encaminhamento
+      const p = pacientes.find(x => x.id === selectedPaciente);
+      const psic = psicologos.find(x => x.id === selectedPsicologo);
+
+      if (p && psic) {
+        // Pega primeiro e segundo nome do paciente
+        const nomesPac = p.nome.split(' ');
+        const nomeResumidoPac = nomesPac.slice(0, 2).join(' ');
+
+        const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'admin');
+        const idsToNotify = new Set([selectedPsicologo, ...(admins?.map(a => a.id) || [])]);
+
+        const notifs = Array.from(idsToNotify).map(perfilId => ({
+          perfil_id: perfilId,
+          titulo: 'Paciente Encaminhado',
+          mensagem: `Paciente: ${nomeResumidoPac} encaminhado para ${psic.full_name}`,
+          tipo: 'atendimento',
+          lido: false,
+          link: '/sala-espera'
+        }));
+
+        await supabase.from('notificacoes').insert(notifs);
+      }
+
       navigate('/atendimentos');
     } else {
       toast.error('Erro ao agendar.');

@@ -84,6 +84,26 @@ export const PacienteDetails: React.FC = () => {
 
     if (!error) {
       toast.success('Paciente encaminhado para a sala de espera!');
+      
+      // Criar Notificação de Encaminhamento
+      if (paciente) {
+        // Pega primeiro e segundo nome do paciente
+        const nomesPac = paciente.nome.split(' ');
+        const nomeResumidoPac = nomesPac.slice(0, 2).join(' ');
+        
+        // Pega nome do psicólogo
+        const psic = psicologos.find(x => x.id === selectedPsicologo);
+        
+        await supabase.from('notificacoes').insert({
+          perfil_id: selectedPsicologo,
+          titulo: 'Paciente Encaminhado',
+          mensagem: `Paciente: ${nomeResumidoPac} encaminhado para ${psic?.full_name || ''}`,
+          link: '/sala-espera',
+          tipo: 'atendimento',
+          lido: false
+        });
+      }
+
       checarAgendamentoHoje();
     } else {
       toast.error('Erro ao encaminhar paciente.');
@@ -97,7 +117,7 @@ export const PacienteDetails: React.FC = () => {
     setEncaminhando(true);
     const { error } = await supabase
       .from('agendamentos')
-      .update({ 
+      .update({
         status: 'Em Atendimento',
         inicio_atendimento: new Date().toISOString()
       })
@@ -170,11 +190,45 @@ export const PacienteDetails: React.FC = () => {
       clearPlano();
       toast.success('Atendimento registrado com sucesso!');
 
+      // Notificações de Atendimento Finalizado
+      if (paciente) {
+        const nomeResumidoPac = paciente.nome.split(' ').slice(0, 2).join(' ');
+        const nomePsic = profile.full_name;
+
+        // 1. Notificar o próprio Psicólogo
+        await supabase.from('notificacoes').insert({
+          perfil_id: profile.id,
+          titulo: 'Atendimento Finalizado',
+          mensagem: `O atendimento de ${nomeResumidoPac} foi concluído com sucesso.`,
+          tipo: 'atendimento',
+          lido: false,
+          link: `/sala-espera`
+        });
+
+        // 2. Notificar todos os Recepcionistas
+        const { data: recps } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'recepcao');
+
+        if (recps && recps.length > 0) {
+          const notifsRecp = recps.map(r => ({
+            perfil_id: r.id,
+            titulo: 'Atendimento Finalizado',
+            mensagem: `Paciente: ${nomeResumidoPac} finalizado por ${nomePsic}.`,
+            tipo: 'atendimento',
+            lido: false,
+            link: `/sala-espera`
+          }));
+          await supabase.from('notificacoes').insert(notifsRecp);
+        }
+      }
+
       // Se houver um agendamento hoje, marca como finalizado
       if (agendamentoHoje) {
         await supabase
           .from('agendamentos')
-          .update({ 
+          .update({
             status: 'Finalizado',
             fim_atendimento: new Date().toISOString()
           })
@@ -228,8 +282,8 @@ export const PacienteDetails: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'hsl(var(--text-muted))' }}>Encaminhar para atendimento agora:</span>
                 <div style={{ display: 'flex', gap: '0.75rem', flex: 1, minWidth: '300px' }}>
-                  <select 
-                    className="form-input" 
+                  <select
+                    className="form-input"
                     style={{ flex: 1, paddingTop: '0.5rem', paddingBottom: '0.5rem' }}
                     value={selectedPsicologo}
                     onChange={e => setSelectedPsicologo(e.target.value)}
@@ -239,8 +293,8 @@ export const PacienteDetails: React.FC = () => {
                       <option key={psic.id} value={psic.id}>{psic.full_name}</option>
                     ))}
                   </select>
-                  <button 
-                    className="btn btn-primary" 
+                  <button
+                    className="btn btn-primary"
                     onClick={encaminharPaciente}
                     disabled={encaminhando}
                     style={{ width: 'auto', padding: '0 1.5rem' }}
