@@ -46,7 +46,8 @@ export const Financeiro: React.FC = () => {
         .from('transacoes')
         .select(`
           *,
-          pacientes (nome)
+          pacientes (nome),
+          fornecedores (nome)
         `)
         .order('data', { ascending: false });
 
@@ -113,7 +114,7 @@ export const Financeiro: React.FC = () => {
       toast.error('Não há dados para exportar.');
       return;
     }
-    const headers = ['Data', 'Tipo', 'Descricao', 'Valor', 'Status', 'Categoria', 'Forma Pagamento', 'Paciente'];
+    const headers = ['Data', 'Tipo', 'Descricao', 'Valor', 'Status', 'Categoria', 'Forma Pagamento', 'Vinculo (Paciente/Fornecedor)'];
     const csvRows = transacoes.map(t => [
       t.data,
       t.tipo,
@@ -122,7 +123,7 @@ export const Financeiro: React.FC = () => {
       t.status,
       t.categoria || '',
       t.forma_pagamento || '',
-      `"${t.pacientes?.nome || ''}"`
+      `"${t.pacientes?.nome || t.fornecedores?.nome || ''}"`
     ]);
 
     const csvContent = [headers, ...csvRows].map(e => e.join(',')).join('\n');
@@ -153,6 +154,12 @@ export const Financeiro: React.FC = () => {
     localStorage.setItem('meta_financeira', meta.toString());
     carregarDados();
   }, [meta]);
+
+  useEffect(() => {
+    const handleUpdate = () => carregarDados();
+    window.addEventListener('finance_updated', handleUpdate);
+    return () => window.removeEventListener('finance_updated', handleUpdate);
+  }, []);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -327,6 +334,9 @@ export const Financeiro: React.FC = () => {
                               <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{t.descricao}</div>
                               {t.pacientes?.nome && (
                                 <div style={{ fontSize: '0.75rem', color: 'hsl(var(--primary))', fontWeight: 500 }}>Paciente: {t.pacientes.nome}</div>
+                              )}
+                              {t.fornecedores?.nome && (
+                                <div style={{ fontSize: '0.75rem', color: 'hsl(0, 84%, 50%)', fontWeight: 500 }}>Fornecedor: {t.fornecedores.nome}</div>
                               )}
                             </div>
                           </div>

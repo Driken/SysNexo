@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, supabaseAdminAuth } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { Save, ArrowLeft, Trash2, UserMinus, UserCheck, AlertTriangle, Key, Eye, EyeOff, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { toast } from 'sonner';
+import { toast } from "sonner";
 
 interface Props {
   userToEdit?: any;
@@ -142,24 +142,25 @@ export const UserForm: React.FC<Props> = ({
         onSave();
       }
     } else {
-      const { error } = await supabaseAdminAuth.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            role: role,
-            cpf: cpf,
-            email: email
-          }
+      // Usar a Edge Function para criar o usuário sem deslogar o admin atual
+      const { data, error: functionError } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email,
+          password,
+          full_name: fullName,
+          role,
+          cpf
         }
       });
 
       setLoading(false);
-      if (error) {
-        toast.error(`Erro ao cadastrar: ${error.message}`);
+
+      if (functionError) {
+        toast.error(`Erro na função: ${functionError.message}`);
+      } else if (data?.error) {
+        toast.error(`Erro ao cadastrar: ${data.error}`);
       } else {
-        toast.success('Usuário cadastrado com sucesso!');
+        toast.success('Usuário cadastrado com sucesso! O acesso está liberado.');
         onSave();
       }
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, LayoutDashboard, Settings, Activity, Menu, Sun, Moon, Bell, Users, ChevronDown, ChevronRight, FileText, Contact2, Search, Clock, DollarSign } from 'lucide-react';
+import { LogOut, LayoutDashboard, Settings, Activity, Menu, Sun, Moon, Bell, Users, ChevronDown, ChevronRight, FileText, Contact2, Search, Clock, DollarSign, Plus, PieChart, Truck, Building2 } from 'lucide-react';
+import { TransactionModal } from './TransactionModal';
 import { Link, useLocation } from 'react-router-dom';
 import { BuscaUniversal } from './BuscaUniversal';
 import { createPortal } from 'react-dom';
@@ -15,14 +16,19 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [notifications, setNotifications] = useState<{ id: string, text: string, time: string, read: boolean }[]>([]);
+  const [notifications, setNotifications] = useState<{ id: string, text: string, time: string, read: boolean, title: string, tipo: string }[]>([]);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [showAdminResetModal, setShowAdminResetModal] = useState(false);
+  const [resetData, setResetData] = useState({ email: '', password: 'Abc12345', userId: '' });
+  const [isResetting, setIsResetting] = useState(false);
   const [isThemePanelOpen, setIsThemePanelOpen] = useState(false);
   const themePanelRef = useRef<HTMLDivElement>(null);
   const notifPanelRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const brightnessTextRef = useRef<HTMLSpanElement>(null);
   const [brightness, setBrightness] = useState<number>(() => Number(localStorage.getItem('theme-brightness')) || 100);
+  const [isFinanceOpen, setIsFinanceOpen] = useState(false);
+  const [isNewTransactionModalOpen, setIsNewTransactionModalOpen] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
   const getSeenCount = () => {
@@ -107,46 +113,54 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     await signOut();
   };
 
-  // Notificações em tempo real para encaminhamentos
+  // Notificações em tempo real (Persistentes)
   useEffect(() => {
-    if (!profile?.id || (viewMode !== 'psicologo' && viewMode !== 'admin')) return;
+    if (!profile?.id) return;
+
+    const fetchNotifications = async () => {
+      const { data } = await supabase
+        .from('notificacoes')
+        .select('*')
+        .eq('perfil_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (data) {
+        setNotifications(data.map(n => ({
+          id: n.id,
+          text: n.mensagem,
+          time: new Date(n.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+          read: n.lido,
+          title: n.titulo,
+          tipo: n.tipo
+        })));
+      }
+    };
+
+    fetchNotifications();
 
     const channel = supabase
-      .channel('agendamentos-notif')
+      .channel('notificacoes-realtime')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
-          table: 'agendamentos',
-          filter: `psicologo_id=eq.${profile.id}`
+          table: 'notificacoes',
+          filter: `perfil_id=eq.${profile.id}`
         },
-        async (payload) => {
-          // Só notifica se for um novo registro ou mudança de status para os que interessam
-          const isRelevant = payload.eventType === 'INSERT' || 
-                           (payload.eventType === 'UPDATE' && payload.new.status !== payload.old.status);
+        (payload) => {
+          const newNotif = {
+            id: payload.new.id,
+            text: payload.new.mensagem,
+            time: new Date(payload.new.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
+            read: payload.new.lido,
+            title: payload.new.titulo,
+            tipo: payload.new.tipo
+          };
 
-          if (isRelevant) {
-            // Buscar nome do paciente
-            const { data: pac } = await supabase
-              .from('pacientes')
-              .select('nome')
-              .eq('id', payload.new.paciente_id)
-              .single();
-
-            const statusTxt = payload.new.status === 'Em Atendimento' ? 'em atendimento' : 'agendado';
-            const msg = `Você tem um novo paciente ${statusTxt}: ${pac?.nome || 'Cadastro novo'}`;
-            
-            toast.info(msg);
-            
-            // Adiciona ao histórico do sistema
-            setNotifications(prev => [{
-              id: payload.new.id + Date.now(),
-              text: msg,
-              time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-              read: false
-            }, ...prev].slice(0, 20)); // Limita aos últimos 20
-          }
+          toast.info(newNotif.title, { description: newNotif.text });
+          setNotifications(prev => [newNotif, ...prev].slice(0, 20));
         }
       )
       .subscribe();
@@ -155,6 +169,87 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       supabase.removeChannel(channel);
     };
   }, [profile?.id, viewMode]);
+
+  const markAllAsRead = async () => {
+    if (!profile?.id) return;
+    const { error } = await supabase
+      .from('notificacoes')
+      .update({ lido: true })
+      .eq('perfil_id', profile.id)
+      .eq('lido', false);
+
+    if (!error) {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }
+  };
+
+  const clearNotifications = async () => {
+    if (!profile?.id) return;
+    const { error } = await supabase
+      .from('notificacoes')
+      .delete()
+      .eq('perfil_id', profile.id);
+
+    if (!error) {
+      setNotifications([]);
+    }
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    if (notif.tipo === 'suporte') {
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+      const foundEmail = notif.text.match(emailRegex);
+
+      if (foundEmail) {
+        const email = foundEmail[0];
+        setResetData({ email, password: 'Abc12345', userId: '' });
+        setShowAdminResetModal(true);
+        setIsNotificationsOpen(false);
+
+        // Marcar como lida automaticamente ao abrir o suporte
+        await supabase.from('notificacoes').update({ lido: true }).eq('id', notif.id);
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+      }
+    } else if (!notif.read) {
+      await supabase.from('notificacoes').update({ lido: true }).eq('id', notif.id);
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+    }
+  };
+
+  const performAdminReset = async () => {
+    if (!resetData.email) return;
+    setIsResetting(true);
+
+    try {
+      // 1. Achar o ID do usuário pelo e-mail
+      const { data: userData, error: userError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', resetData.email)
+        .single();
+
+      if (userError || !userData) {
+        throw new Error('Usuário não encontrado no sistema.');
+      }
+
+      // 2. Chamar o RPC de reset
+      const { error: resetError } = await supabase.rpc('admin_reset_password', {
+        target_user_id: userData.id,
+        new_password: resetData.password
+      });
+
+      if (resetError) throw resetError;
+
+      toast.success('Senha redefinida com sucesso!', {
+        description: `O e-mail de acesso é ${resetData.email}`
+      });
+      setShowAdminResetModal(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao redefinir senha.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   const navItems = [
     { name: 'Painel Geral', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
@@ -176,6 +271,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         path: (viewMode === 'recepcao' || viewMode === 'admin') ? '/atendimentos' : '/prontuarios',
         icon: <FileText size={20} />
       },
+    ] : []),
+    ...(profile?.role === 'admin' ? [
+      { name: 'Financeiro', path: '#', icon: <DollarSign size={20} />, action: 'openFinance' }
     ] : []),
     { name: 'Configurações', path: '#', icon: <Settings size={20} />, action: 'openSettings' },
   ];
@@ -226,6 +324,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <nav className="sidebar-nav">
           {navItems.map((item, idx) => {
             const isActive = location.pathname === item.path;
+            const hasSubmenu = item.action === 'openSettings' || item.action === 'openFinance';
+            const isSubmenuOpen = item.action === 'openSettings' ? isSettingsOpen : (item.action === 'openFinance' ? isFinanceOpen : false);
+
             return (
               <div key={idx} style={{ display: 'flex', flexDirection: 'column' }}>
                 <Link
@@ -234,18 +335,56 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                   onClick={(e) => {
                     if (item.path === '#') e.preventDefault();
                     if (item.action === 'openSettings') setIsSettingsOpen(!isSettingsOpen);
+                    if (item.action === 'openFinance') setIsFinanceOpen(!isFinanceOpen);
                   }}
                   title={isCollapsed ? item.name : undefined}
-                  style={item.action === 'openSettings' && !isCollapsed ? { justifyContent: 'space-between', paddingRight: '0.5rem' } : undefined}
+                  style={{
+                    justifyContent: isCollapsed ? 'center' : (hasSubmenu ? 'space-between' : 'flex-start'),
+                    paddingRight: (hasSubmenu && !isCollapsed) ? '0.5rem' : undefined
+                  }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: isCollapsed ? '0' : '1rem' }}>
                     {item.icon}
                     {!isCollapsed && <span className="nav-label">{item.name}</span>}
                   </div>
-                  {item.action === 'openSettings' && !isCollapsed && (
-                    isSettingsOpen ? <ChevronDown size={18} color="hsl(var(--text-muted))" /> : <ChevronRight size={18} color="hsl(var(--text-muted))" />
+                  {hasSubmenu && !isCollapsed && (
+                    isSubmenuOpen ? <ChevronDown size={18} color="hsl(var(--text-muted))" /> : <ChevronRight size={18} color="hsl(var(--text-muted))" />
                   )}
                 </Link>
+
+                {/* Submenu Financeiro */}
+                {item.action === 'openFinance' && isFinanceOpen && (
+                  <div style={{
+                    display: 'flex', flexDirection: 'column', gap: '0.25rem',
+                    marginTop: '0.25rem', paddingLeft: isCollapsed ? '0' : '1.5rem',
+                    animation: 'fadeIn 0.2s ease-out'
+                  }}>
+                    <Link
+                      to="/financeiro"
+                      className={`nav-item ${location.pathname === '/financeiro' ? 'active' : ''}`}
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem',
+                        padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem', width: '100%', flexDirection: 'row',
+                        justifyContent: isCollapsed ? 'center' : 'flex-start', gap: isCollapsed ? '0' : '1rem'
+                      }}
+                    >
+                      <PieChart size={18} />
+                      {!isCollapsed && <span className="nav-label">Gestão / Fluxo</span>}
+                    </Link>
+                    <button
+                      onClick={() => setIsNewTransactionModalOpen(true)}
+                      className="nav-item"
+                      style={{
+                        background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem',
+                        padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem', width: '100%', flexDirection: 'row',
+                        justifyContent: isCollapsed ? 'center' : 'flex-start', gap: isCollapsed ? '0' : '1rem'
+                      }}
+                    >
+                      <Plus size={18} color="hsl(var(--primary))" />
+                      {!isCollapsed && <span className="nav-label" style={{ color: 'hsl(var(--primary))', fontWeight: 600 }}>Nova Transação</span>}
+                    </button>
+                  </div>
+                )}
 
                 {/* Submenu Inline para Configurações */}
                 {item.action === 'openSettings' && isSettingsOpen && (
@@ -254,27 +393,65 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     marginTop: '0.25rem', paddingLeft: isCollapsed ? '0' : '1.5rem',
                     animation: 'fadeIn 0.2s ease-out'
                   }}>
-                      <Link
-                        to="/usuarios"
-                        className={`nav-item ${location.pathname === '/usuarios' ? 'active' : ''}`}
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem', width: '100%', flexDirection: 'row' }}
-                        title="Equipe e Acessos"
-                      >
-                        <Users size={18} />
-                        {!isCollapsed && <span className="nav-label">Usuários</span>}
-                      </Link>
+                    <Link
+                      to="/usuarios"
+                      className={`nav-item ${location.pathname === '/usuarios' ? 'active' : ''}`}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem',
+                        width: '100%',
+                        flexDirection: 'row',
+                        justifyContent: isCollapsed ? 'center' : 'flex-start',
+                        gap: isCollapsed ? '0' : '1rem'
+                      }}
+                      title="Equipe e Acessos"
+                    >
+                      <Users size={18} />
+                      {!isCollapsed && <span className="nav-label">Usuários / Equipe</span>}
+                    </Link>
 
-                      {profile?.role === 'admin' && (
-                        <Link
-                          to="/financeiro"
-                          className={`nav-item ${location.pathname === '/financeiro' ? 'active' : ''}`}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem', padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem', width: '100%', flexDirection: 'row' }}
-                          title="Gestão Financeira"
-                        >
-                          <DollarSign size={18} />
-                          {!isCollapsed && <span className="nav-label">Financeiro</span>}
-                        </Link>
-                      )}
+                    <Link
+                      to="/fornecedores"
+                      className={`nav-item ${location.pathname === '/fornecedores' ? 'active' : ''}`}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem',
+                        width: '100%',
+                        flexDirection: 'row',
+                        justifyContent: isCollapsed ? 'center' : 'flex-start',
+                        gap: isCollapsed ? '0' : '1rem'
+                      }}
+                      title="Gestão de Fornecedores"
+                    >
+                      <Truck size={18} />
+                      {!isCollapsed && <span className="nav-label">Fornecedores</span>}
+                    </Link>
+
+                    <Link
+                      to="/filiais"
+                      className={`nav-item ${location.pathname === '/filiais' ? 'active' : ''}`}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        padding: isCollapsed ? '0.8rem 0' : '0.6rem 1rem',
+                        width: '100%',
+                        flexDirection: 'row',
+                        justifyContent: isCollapsed ? 'center' : 'flex-start',
+                        gap: isCollapsed ? '0' : '1rem'
+                      }}
+                      title="Gestão de Unidades / Filiais"
+                    >
+                      <Building2 size={18} />
+                      {!isCollapsed && <span className="nav-label">Unidades / Filiais</span>}
+                    </Link>
 
                   </div>
                 )}
@@ -284,7 +461,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         </nav>
 
         <div className="sidebar-footer" style={{ padding: isCollapsed ? '1.5rem 0 0 0' : '1.5rem 0 0 0', alignItems: isCollapsed ? 'center' : 'stretch' }}>
-          <button className="btn-logout" onClick={handleLogout} title="Sair do sistema">
+          <button className="btn-logout" onClick={handleLogout} title="Sair do sistema" style={{ gap: isCollapsed ? '0' : '0.5rem' }}>
             <LogOut size={18} />
             {!isCollapsed && <span>Sair</span>}
           </button>
@@ -360,14 +537,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
                 {isThemePanelOpen && (
                   <div style={{
-                      position: 'absolute', top: '130%', right: '0',
-                      backgroundColor: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-light))',
-                      borderRadius: '12px', padding: '0.75rem 1.25rem',
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 999999,
-                      animation: 'fadeIn 0.2s ease-out',
-                      display: 'flex', alignItems: 'center', gap: '1.25rem',
-                      whiteSpace: 'nowrap'
-                    }}>
+                    position: 'absolute', top: '130%', right: '0',
+                    backgroundColor: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-light))',
+                    borderRadius: '12px', padding: '0.75rem 1.25rem',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 999999,
+                    animation: 'fadeIn 0.2s ease-out',
+                    display: 'flex', alignItems: 'center', gap: '1.25rem',
+                    whiteSpace: 'nowrap'
+                  }}>
                     {/* Botões de Modo */}
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button
@@ -401,8 +578,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     {/* Controle de Brilho */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                       <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'hsl(var(--text-main))' }}>Brilho: <span ref={brightnessTextRef} style={{ color: 'hsl(var(--primary))' }}>{brightness}%</span></span>
-                      <input 
-                        type="range" min="30" max="100" defaultValue={brightness} 
+                      <input
+                        type="range" min="30" max="100" defaultValue={brightness}
                         onInput={(e) => {
                           const val = (e.target as HTMLInputElement).value;
                           if (overlayRef.current) overlayRef.current.style.backgroundColor = `rgba(0, 0, 0, ${1 - Number(val) / 100})`;
@@ -417,79 +594,99 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               </div>
 
               <div style={{ position: 'relative' }} ref={notifPanelRef}>
-                  <button
-                    onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                    style={{
-                      background: 'hsl(var(--bg-card))', border: 'none', cursor: 'pointer', display: 'flex',
-                      padding: '8px', borderRadius: '50%', boxShadow: 'var(--shadow-md)',
-                      position: 'relative'
-                    }}
-                    title="Ver Notificações"
-                  >
-                    <Bell size={18} color="hsl(var(--primary))" />
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <span style={{
-                        position: 'absolute', top: -1, right: -1,
-                        width: '10px', height: '10px', background: 'hsl(var(--primary))',
-                        borderRadius: '50%', border: '2px solid hsl(var(--card))'
-                      }} />
-                    )}
-                  </button>
-
-                  {isNotificationsOpen && (
-                    <div style={{
-                      position: 'absolute', top: '130%', right: '-10px', width: '320px',
-                      backgroundColor: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-light))',
-                      borderRadius: '12px', padding: '1rem',
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 999999,
-                      animation: 'fadeIn 0.2s ease-out',
-                      display: 'flex', flexDirection: 'column', gap: '1rem'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>Notificações</span>
-                        {notifications.length > 0 && (
-                          <div style={{ display: 'flex', gap: '0.75rem' }}>
-                            <button
-                               onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
-                               style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--primary))', fontWeight: 600, padding: 0 }}
-                               title="Marcar todas como lidas"
-                            >
-                               Lidas
-                            </button>
-                            <button
-                               onClick={() => setNotifications([])}
-                               style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, padding: 0 }}
-                               title="Apagar todas as notificações"
-                            >
-                               Apagar
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                        {notifications.length === 0 ? (
-                          <div style={{ textAlign: 'center', padding: '1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>
-                            Nenhuma notificação por enquanto.
-                          </div>
-                        ) : (
-                          notifications.slice(0, 3).map(notif => (
-                            <div key={notif.id} style={{
-                              padding: '0.75rem', background: notif.read ? 'transparent' : 'hsla(var(--primary), 0.05)',
-                              borderRadius: '8px', border: '1px solid hsl(var(--border-light))',
-                              position: 'relative'
-                            }}>
-                              <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8rem', lineHeight: '1.4', color: 'hsl(var(--text-main))', whiteSpace: 'normal', wordBreak: 'break-word' }}>{notif.text}</p>
-                              <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>{notif.time}</span>
-                              {!notif.read && (
-                                <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', width: '6px', height: '6px', background: 'hsl(var(--primary))', borderRadius: '50%' }} />
-                              )}
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
+                <button
+                  onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                  style={{
+                    background: 'hsl(var(--bg-card))', border: 'none', cursor: 'pointer', display: 'flex',
+                    padding: '8px', borderRadius: '50%', boxShadow: 'var(--shadow-md)',
+                    position: 'relative'
+                  }}
+                  title="Ver Notificações"
+                >
+                  <Bell size={18} color="hsl(var(--primary))" />
+                  {notifications.filter(n => !n.read).length > 0 && (
+                    <span style={{
+                      position: 'absolute', top: -1, right: -1,
+                      width: '10px', height: '10px', background: 'hsl(var(--primary))',
+                      borderRadius: '50%', border: '2px solid hsl(var(--card))'
+                    }} />
                   )}
+                </button>
+
+                {isNotificationsOpen && (
+                  <div style={{
+                    position: 'absolute', top: '130%', right: '-10px', width: '320px',
+                    backgroundColor: 'hsl(var(--bg-card))', border: '1px solid hsl(var(--border-light))',
+                    borderRadius: '12px', padding: '1rem',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 999999,
+                    animation: 'fadeIn 0.2s ease-out',
+                    display: 'flex', flexDirection: 'column', gap: '1rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'hsl(var(--text-main))' }}>Notificações ({notifications.length})</span>
+                      {notifications.length > 0 && (
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                          <button
+                            onClick={markAllAsRead}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--primary))', fontWeight: 600, padding: 0 }}
+                            title="Marcar todas como lidas"
+                          >
+                            Lidas
+                          </button>
+                          <button
+                            onClick={clearNotifications}
+                            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'hsl(var(--text-muted))', fontWeight: 600, padding: 0 }}
+                            title="Apagar todas as notificações"
+                          >
+                            Apagar
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {notifications.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '1rem', color: 'hsl(var(--text-muted))', fontSize: '0.8rem' }}>
+                          Nenhuma notificação por enquanto.
+                        </div>
+                      ) : (
+                        notifications.slice(0, 5).map(notif => (
+                          <div
+                            key={notif.id}
+                            onClick={() => handleNotificationClick(notif)}
+                            style={{
+                              padding: '0.75rem',
+                              background: notif.read ? 'transparent' : 'hsla(var(--primary), 0.05)',
+                              borderRadius: '8px',
+                              border: notif.read ? '1px solid hsl(var(--border-light))' : '1px solid hsla(var(--primary), 0.2)',
+                              position: 'relative',
+                              cursor: notif.tipo === 'suporte' ? 'pointer' : 'default',
+                              transition: 'all 0.2s',
+                              borderLeft: notif.tipo === 'suporte' ? '3px solid hsl(var(--primary))' : undefined
+                            }}
+                            className={notif.tipo === 'suporte' ? 'hover-pointer' : ''}
+                            onMouseEnter={(e) => {
+                              if (notif.tipo === 'suporte') e.currentTarget.style.transform = 'translateX(3px)';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (notif.tipo === 'suporte') e.currentTarget.style.transform = 'translateX(0)';
+                            }}
+                          >
+                            <div style={{ fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase', color: 'hsl(var(--primary))', marginBottom: '0.15rem', display: 'flex', justifyContent: 'space-between' }}>
+                              {notif.title}
+                              {notif.tipo === 'suporte' && <Settings size={12} />}
+                            </div>
+                            <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.75rem', lineHeight: '1.4', color: 'hsl(var(--text-main))', whiteSpace: 'normal', wordBreak: 'break-word' }}>{notif.text}</p>
+                            <span style={{ fontSize: '0.65rem', color: 'hsl(var(--text-muted))' }}>{notif.time}</span>
+                            {!notif.read && (
+                              <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', width: '6px', height: '6px', background: 'hsl(var(--primary))', borderRadius: '50%' }} />
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -506,7 +703,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <Search size={14} /> BUSCA <span style={{ opacity: 0.6, fontSize: '0.6rem', marginLeft: '0.2rem' }}>CTRL + K</span>
-                
+
                 {/* Tutorial Interativo do Ctrl+K posicionado saindo do botão */}
                 {showTutorial && (
                   <div style={{
@@ -518,7 +715,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                     animation: 'slideDownFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
                     width: '300px', cursor: 'default'
                   }}
-                  onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <style>{`
                       @keyframes slideDownFadeIn {
@@ -534,25 +731,25 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                       borderRight: '8px solid transparent',
                       borderBottom: '8px solid hsl(var(--primary))'
                     }}></div>
-                    
+
                     <div style={{ color: 'white', marginTop: '2px' }}>
                       <Search size={22} />
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '4px', textTransform: 'none', lineHeight: 1.2 }}>Dica rápida!</div>
                       <div style={{ fontSize: '0.8rem', opacity: 0.9, lineHeight: 1.4, fontWeight: 500, textTransform: 'none' }}>
-                        Pressione <kbd style={{ background: 'rgba(0,0,0,0.3)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)'}}>CTRL + K</kbd> para buscar pacientes rapidamente.
+                        Pressione <kbd style={{ background: 'rgba(0,0,0,0.3)', padding: '0.1rem 0.4rem', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.2)' }}>CTRL + K</kbd> para buscar pacientes rapidamente.
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowTutorial(false);
                         const current = getSeenCount();
                         localStorage.setItem('ctrlK_tutorial_seen', (current + 1).toString());
                       }}
-                      style={{ 
-                        background: 'transparent', border: 'none', color: 'white', 
+                      style={{
+                        background: 'transparent', border: 'none', color: 'white',
                         cursor: 'pointer', padding: '0.2rem',
                         opacity: 0.7, fontWeight: 800, fontSize: '1rem',
                         marginTop: '-4px', marginRight: '-4px'
@@ -573,6 +770,18 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         <div className="layout-body">
           {children}
         </div>
+
+        {/* Modal Financeiro Global (Acessível via Sidebar) */}
+        <TransactionModal
+          isOpen={isNewTransactionModalOpen}
+          onClose={() => setIsNewTransactionModalOpen(false)}
+          onSave={() => {
+            setIsNewTransactionModalOpen(false);
+            // Como as páginas usam Realtime, elas devem se atualizar sozinhas, 
+            // ou podemos disparar um evento global se necessário.
+            window.dispatchEvent(new CustomEvent('finance_updated'));
+          }}
+        />
       </main>
 
       {/* Busca Universal Global (Atalho Ctrl+K) */}
@@ -588,13 +797,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             if (e.target === e.currentTarget) setIsSearchOpen(false);
           }}
         >
-          <div 
+          <div
             onClick={(e) => e.stopPropagation()} // Garante que o clique interno não feche a modal
-            style={{ 
-              width: '100%', maxWidth: '750px', 
+            style={{
+              width: '100%', maxWidth: '750px',
               height: 'fit-content', // Garante que a caixa não se expanda no eixo Y e bloqueie o clique fora
               cursor: 'default',
-              animation: 'fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1)' 
+              animation: 'fadeInScale 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           >
             <style>{`
@@ -619,16 +828,73 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         document.body
       )}
 
+      {/* Modal Admin: Reset de Senha via Suporte */}
+      {showAdminResetModal && createPortal(
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999999, padding: '20px'
+        }}>
+          <div className="glass-card" style={{ width: '100%', maxWidth: '400px', padding: '2rem', animation: 'modalEntry 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            <h2 style={{ color: 'hsl(var(--text-main))', marginBottom: '0.5rem', fontSize: '1.25rem' }}>Atender Solicitação</h2>
+            <p style={{ color: 'hsl(var(--text-muted))', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+              Redefina a senha do usuário que solicitou ajuda.
+            </p>
+
+            <div className="input-group" style={{ marginBottom: '1rem' }}>
+              <label className="input-label">E-mail do Usuário</label>
+              <input
+                className="form-input"
+                readOnly
+                value={resetData.email}
+                style={{ opacity: 0.7, cursor: 'not-allowed' }}
+              />
+            </div>
+
+            <div className="input-group" style={{ marginBottom: '1.5rem' }}>
+              <label className="input-label">Nova Senha Provisória</label>
+              <input
+                className="form-input"
+                type="text"
+                value={resetData.password}
+                onChange={(e) => setResetData({ ...resetData, password: e.target.value })}
+                placeholder="Defina a nova senha"
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button
+                onClick={() => setShowAdminResetModal(false)}
+                className="btn"
+                style={{ flex: 1, background: 'transparent', border: '1px solid hsl(var(--border-light))', color: 'hsl(var(--text-muted))' }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={performAdminReset}
+                disabled={isResetting}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                {isResetting ? 'Processando...' : 'Resetar Senha'}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Camada de controle de Brilho Global */}
       {createPortal(
-        <div 
+        <div
           ref={overlayRef}
           style={{
             position: 'fixed',
             inset: 0,
             backgroundColor: `rgba(0, 0, 0, ${1 - brightness / 100})`,
             pointerEvents: 'none',
-            zIndex: 9999999
+            zIndex: 99999999
           }}
         />,
         document.body

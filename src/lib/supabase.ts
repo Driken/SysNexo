@@ -7,7 +7,35 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Supabase credentials not found. Please check your .env file.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Adaptador de storage híbrido para suportar "Manter Conectado"
+const smartStorage = {
+  getItem: (key: string) => {
+    return localStorage.getItem(key) || sessionStorage.getItem(key);
+  },
+  setItem: (key: string, value: string) => {
+    // Se o flag de sessão temporária estiver ativo, usamos sessionStorage
+    if (sessionStorage.getItem('supabase_use_session_only') === 'true') {
+      sessionStorage.setItem(key, value);
+      localStorage.removeItem(key);
+    } else {
+      localStorage.setItem(key, value);
+      sessionStorage.removeItem(key);
+    }
+  },
+  removeItem: (key: string) => {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  }
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: smartStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
 
 // Cliente secundário para cadastro de usuários (não substitui a sessão do admin logado)
 export const supabaseAdminAuth = createClient(supabaseUrl, supabaseAnonKey, {

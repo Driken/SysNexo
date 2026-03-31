@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { X, Save, DollarSign, ArrowUpRight, ArrowDownLeft, Calendar, Tag, CreditCard, User, Hash } from 'lucide-react';
+import { X, Save, DollarSign, ArrowUpRight, ArrowDownLeft, Calendar, Tag, CreditCard, User, Hash, Truck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -18,6 +18,7 @@ export const TransactionModal: React.FC<Props> = ({
   const modalRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [pacientes, setPacientes] = useState<any[]>([]);
+  const [fornecedores, setFornecedores] = useState<any[]>([]);
 
   // Form State
   const [tipo, setTipo] = useState<'receita' | 'despesa'>('receita');
@@ -28,11 +29,13 @@ export const TransactionModal: React.FC<Props> = ({
   const [categoria, setCategoria] = useState('');
   const [formaPagamento, setFormaPagamento] = useState('');
   const [pacienteId, setPacienteId] = useState('');
+  const [fornecedorId, setFornecedorId] = useState('');
   const [parcelas, setParcelas] = useState('1');
 
   useEffect(() => {
     if (isOpen) {
       carregarPacientes();
+      carregarFornecedores();
       if (transactionToEdit) {
         setTipo(transactionToEdit.tipo);
         setValor(transactionToEdit.valor.toString());
@@ -42,6 +45,7 @@ export const TransactionModal: React.FC<Props> = ({
         setCategoria(transactionToEdit.categoria || '');
         setFormaPagamento(transactionToEdit.forma_pagamento || '');
         setPacienteId(transactionToEdit.paciente_id || '');
+        setFornecedorId(transactionToEdit.fornecedor_id || '');
         setParcelas(transactionToEdit.parcelas?.toString() || '1');
       } else {
         setTipo('receita');
@@ -52,6 +56,7 @@ export const TransactionModal: React.FC<Props> = ({
         setCategoria('');
         setFormaPagamento('');
         setPacienteId('');
+        setFornecedorId('');
         setParcelas('1');
       }
     }
@@ -60,6 +65,11 @@ export const TransactionModal: React.FC<Props> = ({
   const carregarPacientes = async () => {
     const { data } = await supabase.from('pacientes').select('id, nome').order('nome');
     if (data) setPacientes(data);
+  };
+
+  const carregarFornecedores = async () => {
+    const { data } = await supabase.from('fornecedores').select('id, nome').order('nome');
+    if (data) setFornecedores(data);
   };
 
   const handleOverlayClick = (e: React.MouseEvent) => {
@@ -82,6 +92,7 @@ export const TransactionModal: React.FC<Props> = ({
         categoria,
         forma_pagamento: formaPagamento,
         paciente_id: tipo === 'receita' ? (pacienteId || null) : null,
+        fornecedor_id: tipo === 'despesa' ? (fornecedorId || null) : null,
         psicologo_id: profile?.id,
         parcelas: parseInt(parcelas) || 1
       };
@@ -129,14 +140,34 @@ export const TransactionModal: React.FC<Props> = ({
         ref={modalRef}
         className="glass-card"
         style={{
-          width: '100%', maxWidth: '600px', padding: 0, overflow: 'hidden',
-          animation: 'fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+          width: '95%',
+          maxWidth: '650px',
+          height: 'auto',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 0,
+          overflow: 'hidden',
+          animation: 'modalEntry 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+          transition: 'all 0.3s ease-in-out'
         }}
       >
         <style>{`
-          @keyframes fadeInScale {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+          @keyframes modalEntry {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          .modal-content-scroll {
+            overflow-y: auto;
+            flex: 1;
+            padding: 2rem;
+          }
+          .modal-content-scroll::-webkit-scrollbar {
+            width: 6px;
+          }
+          .modal-content-scroll::-webkit-scrollbar-thumb {
+            background: hsla(var(--primary), 0.2);
+            border-radius: 10px;
           }
         `}</style>
 
@@ -164,173 +195,201 @@ export const TransactionModal: React.FC<Props> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ padding: '2rem' }}>
-          {/* Toggle Tipo */}
-          {!transactionToEdit && (
-            <div style={{ display: 'flex', background: 'hsl(var(--bg-main))', padding: '4px', borderRadius: '12px', marginBottom: '2rem' }}>
-              <button
-                type="button"
-                onClick={() => setTipo('receita')}
-                style={{
-                  flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700,
-                  transition: 'all 0.2s', background: tipo === 'receita' ? 'white' : 'transparent',
-                  color: tipo === 'receita' ? 'hsl(142, 70%, 45%)' : 'hsl(var(--text-muted))',
-                  boxShadow: tipo === 'receita' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                RECEITA
-              </button>
-              <button
-                type="button"
-                onClick={() => setTipo('despesa')}
-                style={{
-                  flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700,
-                  transition: 'all 0.2s', background: tipo === 'despesa' ? 'white' : 'transparent',
-                  color: tipo === 'despesa' ? 'hsl(0, 84%, 60%)' : 'hsl(var(--text-muted))',
-                  boxShadow: tipo === 'despesa' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
-                }}
-              >
-                DESPESA
-              </button>
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
-            {/* Valor */}
-            <div className="input-group" style={{ gridColumn: 'span 1' }}>
-              <label className="input-label flex-row"><DollarSign size={14} /> Valor (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                required
-                className="form-input"
-                placeholder="0,00"
-                value={valor}
-                onChange={e => setValor(e.target.value)}
-                style={{ fontSize: '1.25rem', fontWeight: 700 }}
-              />
-            </div>
-
-            {/* Data */}
-            <div className="input-group" style={{ gridColumn: 'span 1' }}>
-              <label className="input-label flex-row"><Calendar size={14} /> Data</label>
-              <input
-                type="date"
-                required
-                className="form-input"
-                value={data}
-                onChange={e => setData(e.target.value)}
-              />
-            </div>
-
-            {/* Descrição */}
-            <div className="input-group" style={{ gridColumn: 'span 2' }}>
-              <label className="input-label">Descrição</label>
-              <input
-                type="text"
-                required
-                className="form-input"
-                placeholder="Ex: Sessão Quinzenal, Aluguel da Sala..."
-                value={descricao}
-                onChange={e => setDescricao(e.target.value)}
-              />
-            </div>
-
-            {/* Categoria */}
-            <div className="input-group">
-              <label className="input-label flex-row"><Tag size={14} /> Categoria</label>
-              <select
-                className="form-input"
-                required
-                value={categoria}
-                onChange={e => setCategoria(e.target.value)}
-              >
-                <option value="">Selecione...</option>
-                {(tipo === 'receita' ? categoriasReceita : categoriasDespesa).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Forma Pagamento */}
-            <div className="input-group">
-              <label className="input-label flex-row"><CreditCard size={14} /> Forma de Pagamento</label>
-              <select
-                className="form-input"
-                required
-                value={formaPagamento}
-                onChange={e => setFormaPagamento(e.target.value)}
-              >
-                <option value="">Selecione...</option>
-                {['Pix', 'Dinheiro', 'Cartão Crédito', 'Cartão Débito', 'Transferência', 'Boleto'].map(f => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Paciente (Só se for Receita) */}
-            {tipo === 'receita' && (
-              <div className="input-group" style={{ gridColumn: 'span 2' }}>
-                <label className="input-label flex-row"><User size={14} /> Paciente Vinculado (Opcional)</label>
-                <select
-                  className="form-input"
-                  value={pacienteId}
-                  onChange={e => setPacienteId(e.target.value)}
+        <form onSubmit={handleSubmit} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Container de Campos com Scroll se necessário */}
+          <div className="modal-content-scroll">
+            {/* Toggle Tipo */}
+            {!transactionToEdit && (
+              <div style={{ display: 'flex', background: 'hsl(var(--bg-main))', padding: '4px', borderRadius: '12px', marginBottom: '1.5rem', transition: 'all 0.3s' }}>
+                <button
+                  type="button"
+                  onClick={() => setTipo('receita')}
+                  style={{
+                    flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700,
+                    transition: 'all 0.2s', background: tipo === 'receita' ? 'white' : 'transparent',
+                    color: tipo === 'receita' ? 'hsl(142, 70%, 45%)' : 'hsl(var(--text-muted))',
+                    boxShadow: tipo === 'receita' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
+                  }}
                 >
-                  <option value="">Nenhum</option>
-                  {pacientes.map(p => (
-                    <option key={p.id} value={p.id}>{p.nome}</option>
-                  ))}
-                </select>
+                  RECEITA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipo('despesa')}
+                  style={{
+                    flex: 1, padding: '0.6rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 700,
+                    transition: 'all 0.2s', background: tipo === 'despesa' ? 'white' : 'transparent',
+                    color: tipo === 'despesa' ? 'hsl(0, 84%, 60%)' : 'hsl(var(--text-muted))',
+                    boxShadow: tipo === 'despesa' ? '0 4px 12px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  DESPESA
+                </button>
               </div>
             )}
 
-            {/* Status e Parcelas */}
-            <div className="input-group">
-              <label className="input-label">Status</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button
-                  type="button"
-                  onClick={() => setStatus('pago')}
-                  style={{
-                    flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid hsl(var(--border-light))', cursor: 'pointer',
-                    background: status === 'pago' ? 'hsla(142, 70%, 45%, 0.1)' : 'transparent',
-                    color: status === 'pago' ? 'hsl(142, 70%, 45%)' : 'hsl(var(--text-muted))',
-                    borderColor: status === 'pago' ? 'hsl(142, 70%, 45%)' : 'hsl(var(--border-light))',
-                    fontWeight: 600, fontSize: '0.8rem'
-                  }}
-                >
-                  Efetivado
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStatus('pendente')}
-                  style={{
-                    flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid hsl(var(--border-light))', cursor: 'pointer',
-                    background: status === 'pendente' ? 'hsla(38, 92%, 50%, 0.1)' : 'transparent',
-                    color: status === 'pendente' ? 'hsl(38, 92%, 50%)' : 'hsl(var(--text-muted))',
-                    borderColor: status === 'pendente' ? 'hsl(38, 92%, 50%)' : 'hsl(var(--border-light))',
-                    fontWeight: 600, fontSize: '0.8rem'
-                  }}
-                >
-                  Pendente
-                </button>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+              {/* Valor */}
+              <div className="input-group" style={{ gridColumn: 'span 1' }}>
+                <label className="input-label flex-row"><DollarSign size={14} /> Valor (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  className="form-input"
+                  placeholder="0,00"
+                  value={valor}
+                  onChange={e => setValor(e.target.value)}
+                  style={{ fontSize: '1.25rem', fontWeight: 700 }}
+                />
               </div>
-            </div>
 
-            <div className="input-group">
-              <label className="input-label flex-row"><Hash size={14} /> Parcelas</label>
-              <input
-                type="number"
-                min="1"
-                className="form-input"
-                value={parcelas}
-                onChange={e => setParcelas(e.target.value)}
-              />
+              {/* Data */}
+              <div className="input-group" style={{ gridColumn: 'span 1' }}>
+                <label className="input-label flex-row"><Calendar size={14} /> Data</label>
+                <input
+                  type="date"
+                  required
+                  className="form-input"
+                  value={data}
+                  onChange={e => setData(e.target.value)}
+                />
+              </div>
+
+              {/* Descrição */}
+              <div className="input-group" style={{ gridColumn: 'span 2' }}>
+                <label className="input-label">Descrição</label>
+                <input
+                  type="text"
+                  required
+                  className="form-input"
+                  placeholder="Ex: Sessão Quinzenal, Aluguel da Sala..."
+                  value={descricao}
+                  onChange={e => setDescricao(e.target.value)}
+                />
+              </div>
+
+              {/* Categoria */}
+              <div className="input-group">
+                <label className="input-label flex-row"><Tag size={14} /> Categoria</label>
+                <select
+                  className="form-input"
+                  required
+                  value={categoria}
+                  onChange={e => setCategoria(e.target.value)}
+                >
+                  <option value="">Selecione...</option>
+                  {(tipo === 'receita' ? categoriasReceita : categoriasDespesa).map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Forma Pagamento */}
+              <div className="input-group">
+                <label className="input-label flex-row"><CreditCard size={14} /> Forma de Pagamento</label>
+                <select
+                  className="form-input"
+                  required
+                  value={formaPagamento}
+                  onChange={e => setFormaPagamento(e.target.value)}
+                >
+                  <option value="">Selecione...</option>
+                  {['Pix', 'Dinheiro', 'Cartão Crédito', 'Cartão Débito', 'Transferência', 'Boleto'].map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Paciente (Só se for Receita) */}
+              {tipo === 'receita' && (
+                <div className="input-group" style={{ gridColumn: 'span 2', animation: 'fadeIn 0.3s ease-out' }}>
+                  <label className="input-label flex-row"><User size={14} /> Paciente Vinculado (Opcional)</label>
+                  <select
+                    className="form-input"
+                    value={pacienteId}
+                    onChange={e => setPacienteId(e.target.value)}
+                  >
+                    <option value="">Nenhum</option>
+                    {pacientes.map(p => (
+                      <option key={p.id} value={p.id}>{p.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Fornecedor (Só se for Despesa) */}
+              {tipo === 'despesa' && (
+                <div className="input-group" style={{ gridColumn: 'span 2', animation: 'fadeIn 0.3s ease-out' }}>
+                  <label className="input-label flex-row"><Truck size={14} /> Fornecedor Vinculado (Opcional)</label>
+                  <select
+                    className="form-input"
+                    value={fornecedorId}
+                    onChange={e => setFornecedorId(e.target.value)}
+                  >
+                    <option value="">Nenhum</option>
+                    {fornecedores.map((f: any) => (
+                      <option key={f.id} value={f.id}>{f.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Status e Parcelas */}
+              <div className="input-group">
+                <label className="input-label">Status</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('pago')}
+                    style={{
+                      flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid hsl(var(--border-light))', cursor: 'pointer',
+                      background: status === 'pago' ? 'hsla(142, 70%, 45%, 0.1)' : 'transparent',
+                      color: status === 'pago' ? 'hsl(142, 70%, 45%)' : 'hsl(var(--text-muted))',
+                      borderColor: status === 'pago' ? 'hsl(142, 70%, 45%)' : 'hsl(var(--border-light))',
+                      fontWeight: 600, fontSize: '0.8rem'
+                    }}
+                  >
+                    Efetivado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatus('pendente')}
+                    style={{
+                      flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid hsl(var(--border-light))', cursor: 'pointer',
+                      background: status === 'pendente' ? 'hsla(38, 92%, 50%, 0.1)' : 'transparent',
+                      color: status === 'pendente' ? 'hsl(38, 92%, 50%)' : 'hsl(var(--text-muted))',
+                      borderColor: status === 'pendente' ? 'hsl(38, 92%, 50%)' : 'hsl(var(--border-light))',
+                      fontWeight: 600, fontSize: '0.8rem'
+                    }}
+                  >
+                    Pendente
+                  </button>
+                </div>
+              </div>
+
+              <div className="input-group">
+                <label className="input-label flex-row"><Hash size={14} /> Parcelas</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="form-input"
+                  value={parcelas}
+                  onChange={e => setParcelas(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
-          <div style={{ borderTop: '1px solid hsl(var(--border-light))', marginTop: '2rem', paddingTop: '1.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+          <div style={{ 
+            borderTop: '1px solid hsl(var(--border-light))', 
+            padding: '1.25rem 2rem', 
+            display: 'flex', 
+            justifyContent: 'flex-end', 
+            gap: '1rem',
+            background: 'hsla(var(--bg-card), 0.5)',
+            backdropFilter: 'blur(5px)'
+          }}>
             <button type="button" onClick={onClose} className="btn btn-secondary" style={{ width: 'auto' }}>
               Cancelar
             </button>

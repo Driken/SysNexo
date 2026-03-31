@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 export const Usuarios: React.FC = () => {
   const { profile } = useAuth();
   const [equipe, setEquipe] = useState<any[]>([]);
-  const [pacientes, setPacientes] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,16 +26,7 @@ export const Usuarios: React.FC = () => {
 
   useEffect(() => {
     carregarEquipe();
-    carregarPacientes();
   }, []);
-
-  const carregarPacientes = async () => {
-    const { data } = await supabase
-      .from('pacientes')
-      .select('*')
-      .order('nome', { ascending: true });
-    if (data) setPacientes(data.map(p => ({ ...p, full_name: p.nome, role: 'paciente', is_active: true })));
-  };
 
   const carregarEquipe = async () => {
     const { data } = await supabase
@@ -58,10 +48,6 @@ export const Usuarios: React.FC = () => {
   };
 
   const handleInativar = async (user: any) => {
-    if (user.role === 'paciente') {
-      toast.error('Pacientes não suportam inativação manual nesta lista.');
-      return;
-    }
     const novoStatus = !user.is_active;
     const confirmMsg = novoStatus ? `Deseja reativar o usuário ${user.full_name}?` : `Deseja inativar o usuário ${user.full_name}?`;
 
@@ -81,11 +67,9 @@ export const Usuarios: React.FC = () => {
   };
 
   const handleExcluir = async (user: any) => {
-    if (window.confirm(`ATENÇÃO: Deseja REALMENTE excluir ${user.role === 'paciente' ? 'o cadastro do paciente' : 'o perfil de'} ${user.full_name}? Esta ação não pode ser desfeita.`)) {
+    if (window.confirm(`ATENÇÃO: Deseja REALMENTE excluir o perfil de ${user.full_name}? Esta ação não pode ser desfeita.`)) {
 
-      const { error } = user.role === 'paciente'
-        ? await supabase.rpc('admin_delete_paciente', { target_id: user.id })
-        : await supabase.rpc('admin_delete_user', { target_user_id: user.id });
+      const { error } = await supabase.rpc('admin_delete_user', { target_user_id: user.id });
 
       if (error) {
         if (error.code === '23503') {
@@ -94,14 +78,12 @@ export const Usuarios: React.FC = () => {
           toast.error('Erro ao excluir: ' + error.message);
         }
       } else {
-        toast.success(`${user.role === 'paciente' ? 'Paciente' : 'Perfil'} excluído com sucesso!`);
+        toast.success(`Perfil excluído com sucesso!`);
 
         // Atualização Otimista (remove da tela na hora)
         setEquipe(prev => prev.filter(m => m.id !== user.id));
-        setPacientes(prev => prev.filter(p => p.id !== user.id));
 
         carregarEquipe();
-        carregarPacientes();
 
         // Limpa seleção e fecha modais se estiverem abertos
         setSelectedUser(null);
@@ -163,7 +145,7 @@ export const Usuarios: React.FC = () => {
               <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--primary))', opacity: 0.6 }} />
               <input
                 type="text"
-                placeholder="Pesquisar por nome, e-mail ou CPF..."
+                placeholder="Pesquisar por nome ou e-mail..."
                 className="form-input"
                 style={{
                   paddingLeft: '2.75rem', height: '40px', border: 'none',
@@ -179,8 +161,7 @@ export const Usuarios: React.FC = () => {
                 { id: 'all', label: 'Todos' },
                 { id: 'admin', label: 'Admins' },
                 { id: 'psicologo', label: 'Psicólogos' },
-                { id: 'recepcao', label: 'Recepção' },
-                { id: 'paciente', label: 'Pacientes' }
+                { id: 'recepcao', label: 'Recepção' }
               ].map(cat => (
                 <button
                   key={cat.id}
@@ -234,7 +215,7 @@ export const Usuarios: React.FC = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {[...equipe, ...pacientes]
+              {[...equipe]
                 .filter(u => {
                   // Primeiro: Filtro de Hierarquia (Admin vê tudo, outros veem par)
                   let accessMatch = false;
@@ -244,12 +225,11 @@ export const Usuarios: React.FC = () => {
 
                   if (!accessMatch) return false;
 
-                  // Segundo: Filtro de Pesquisa (Nome, Email, CPF)
+                  // Segundo: Filtro de Pesquisa (Nome, Email)
                   const search = searchTerm.toLowerCase();
                   const searchMatch = !searchTerm ||
                     (u.full_name?.toLowerCase().includes(search)) ||
-                    (u.email?.toLowerCase().includes(search)) ||
-                    (u.cpf?.replace(/\D/g, '').includes(search.replace(/\D/g, '')));
+                    (u.email?.toLowerCase().includes(search));
 
                   if (!searchMatch) return false;
 
@@ -284,7 +264,7 @@ export const Usuarios: React.FC = () => {
                         filter: u.is_active === false ? 'grayscale(1)' : 'none',
                         flexShrink: 0
                       }}>
-                        {u.role === 'paciente' ? 'P' : (u.full_name || 'U')[0].toUpperCase()}
+                        {(u.full_name || 'U')[0].toUpperCase()}
                       </div>
                       <div style={{
                         fontWeight: 600, color: 'hsl(var(--text-main))', fontSize: '0.95rem',
@@ -297,7 +277,7 @@ export const Usuarios: React.FC = () => {
 
                     {/* Coluna 2: Email */}
                     <div style={{ flex: 1.5, fontSize: '0.85rem', color: 'hsl(var(--text-muted))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {u.role === 'paciente' ? `CPF: ${u.cpf || 'N/I'}` : (u.email || 'Sem Email')}
+                      {u.email || 'Sem Email'}
                     </div>
 
                     {/* Coluna 3: Função */}
@@ -309,7 +289,7 @@ export const Usuarios: React.FC = () => {
                         textTransform: 'uppercase', letterSpacing: '0.5px',
                         display: 'inline-block', width: '90px'
                       }}>
-                        {u.role === 'paciente' ? 'Paciente' : (u.role || 'user').substring(0, 10)}
+                        {u.role || 'user'}
                       </span>
                     </div>
 
@@ -344,15 +324,6 @@ export const Usuarios: React.FC = () => {
                   </div>
                 </div>
               ))}
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div style={{ marginTop: '0.2rem' }}>
-                  <CheckCircle size={18} color="hsl(var(--primary))" />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 600, color: 'hsl(var(--primary))', fontSize: '0.9rem', marginBottom: '0.25rem' }}>Paciente Externo</div>
-                  <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.4 }}>Pessoas cadastradas para atendimento. Não possuem acesso ao sistema.</p>
-                </div>
-              </div>
             </div>
 
             <div style={{ marginTop: '2rem', padding: '1rem', borderRadius: 'var(--radius-sm)', background: 'white', border: '1px dashed hsl(var(--border-light))' }}>
@@ -373,7 +344,6 @@ export const Usuarios: React.FC = () => {
         onClose={() => {
           setIsModalOpen(false);
           carregarEquipe();
-          carregarPacientes();
         }}
         userToEdit={selectedUser}
         onDelete={handleExcluir}
