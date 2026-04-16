@@ -7,6 +7,7 @@ import { BuscaUniversal } from './BuscaUniversal';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
+import { ChatWidget } from './Chat/ChatWidget';
 
 export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
@@ -245,6 +246,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
         return;
       }
+    }
+
+    if (notif.tipo === 'chat' || (notif.link && notif.link.startsWith('chat:'))) {
+      const targetId = notif.link?.split(':')[1];
+      window.dispatchEvent(new CustomEvent('open-chat', { detail: { userId: targetId } }));
+      setIsNotificationsOpen(false);
     }
 
     if (notif.link) {
@@ -1001,6 +1008,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
         />,
         document.body
       )}
+      <ChatWidget />
     </div>
   );
 };
