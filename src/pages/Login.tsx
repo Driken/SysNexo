@@ -15,6 +15,8 @@ export const Login: React.FC = () => {
   const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
   const [showForgotModal, setShowForgotModal] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+  const [isSleeping, setIsSleeping] = useState(false);
+  const [isCovering, setIsCovering] = useState(false);
 
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
@@ -34,9 +36,15 @@ export const Login: React.FC = () => {
 
   let robotMessage = "Olá! Sou o PsicoBot. Pronto para o plantão?";
 
-  let robotAction: 'idle' | 'email' | 'password' | 'peeking' | 'error' = 'idle';
+  let robotAction: 'idle' | 'email' | 'password' | 'peeking' | 'error' | 'sleeping' | 'covering' = 'idle';
 
-  if (loading) {
+  if (isCovering) {
+    robotMessage = "Segurança em primeiro lugar! Deixa eu cobrir isso...";
+    robotAction = 'covering';
+  } else if (isSleeping) {
+    robotMessage = "Zzz... me chame se precisar de algo... zzz...";
+    robotAction = 'sleeping';
+  } else if (loading) {
     robotMessage = "Analisando credenciais no sistema... aguarde!";
     robotAction = 'idle';
   } else if (errorMsg) {
@@ -105,36 +113,70 @@ export const Login: React.FC = () => {
           <circle cx="67" cy="50" r="4" fill="hsl(var(--primary))" />
         </>
       )}
+      {robotAction === 'sleeping' && (
+        <g transform="translate(0, 5)">
+          {/* Olhos fechados (como tracinhos) */}
+          <line x1="25" y1="45" x2="41" y2="45" stroke="hsl(var(--text-main))" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+          <line x1="59" y1="45" x2="75" y2="45" stroke="hsl(var(--text-main))" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+
+          {/* Animação ZZZ */}
+          <g className="zzz-animation">
+            <text x="80" y="30" fontSize="12" fill="hsl(var(--primary))" fontWeight="bold">Z</text>
+            <text x="88" y="20" fontSize="10" fill="hsl(var(--primary))" fontWeight="bold" opacity="0.7">z</text>
+            <text x="94" y="12" fontSize="8" fill="hsl(var(--primary))" fontWeight="bold" opacity="0.5">z</text>
+          </g>
+        </g>
+      )}
+      {robotAction === 'covering' && (
+        <>
+          {/* Olhos arregalados de surpresa/ação */}
+          <circle cx="33" cy="50" r="6" fill="hsl(var(--primary))" />
+          <circle cx="67" cy="50" r="6" fill="hsl(var(--primary))" />
+        </>
+      )}
       {/* Mãos do Robozinho - Sempre visíveis com animação de transição */}
       {/* Mão Esquerda */}
-      <g style={{ 
+      <g style={{
         transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: robotAction === 'password' 
-          ? 'translate(19px, 36px) rotate(15deg)' 
+        transform: robotAction === 'password'
+          ? 'translate(19px, 36px) rotate(15deg)'
           : 'translate(-15px, 45px) rotate(0deg)',
         transformOrigin: '28px 14px',
         animation: robotAction === 'idle' ? 'subtleWaveLeft 3s infinite ease-in-out' : 'none'
       }}>
-        <rect x="0" y="8" width="28" height="14" rx="4" fill="hsl(var(--primary))" />
-        <rect x="2" y="0" width="6" height="12" rx="3" fill="hsl(var(--primary))" />
-        <rect x="11" y="-2" width="6" height="14" rx="3" fill="hsl(var(--primary))" />
-        <rect x="20" y="0" width="6" height="12" rx="3" fill="hsl(var(--primary))" />
+        {/* Mão Refinada (Equilíbrio entre magra e gorda) */}
+        <rect x="0" y="7" width="28" height="13" rx="6.5" fill="hsl(var(--primary))" />
+        <rect x="2" y="2" width="7" height="12" rx="3.5" fill="hsl(var(--primary))" />
+        <rect x="10.5" y="0" width="7" height="14" rx="3.5" fill="hsl(var(--primary))" />
+        <rect x="19" y="2" width="7" height="12" rx="3.5" fill="hsl(var(--primary))" />
       </g>
 
       {/* Mão Direita */}
-      <g style={{ 
+      <g style={{
         transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
         transform: (robotAction === 'password' || robotAction === 'peeking')
-          ? 'translate(53px, 36px) rotate(-15deg)' 
+          ? 'translate(53px, 36px) rotate(-15deg)'
           : 'translate(87px, 45px) rotate(0deg)',
         transformOrigin: '0px 14px',
         animation: robotAction === 'idle' ? 'subtleWaveRight 3s infinite ease-in-out' : 'none'
       }}>
-        <rect x="0" y="8" width="28" height="14" rx="4" fill="hsl(var(--primary))" />
-        <rect x="2" y="0" width="6" height="12" rx="3" fill="hsl(var(--primary))" />
-        <rect x="11" y="-2" width="6" height="14" rx="3" fill="hsl(var(--primary))" />
-        <rect x="20" y="0" width="6" height="12" rx="3" fill="hsl(var(--primary))" />
+        {/* Mão Refinada (Equilíbrio entre magra e gorda) */}
+        <rect x="0" y="7" width="28" height="13" rx="6.5" fill="hsl(var(--primary))" />
+        <rect x="2" y="2" width="7" height="12" rx="3.5" fill="hsl(var(--primary))" />
+        <rect x="10.5" y="0" width="7" height="14" rx="3.5" fill="hsl(var(--primary))" />
+        <rect x="19" y="2" width="7" height="12" rx="3.5" fill="hsl(var(--primary))" />
       </g>
+
+      {/* Mão de Cobertura (Especial para o 'covering') */}
+      {robotAction === 'covering' && (
+        <g style={{
+          animation: 'snapCover 1s ease-in-out forwards',
+          transformOrigin: '50% 100%'
+        }}>
+          <rect x="20" y="25" width="60" height="35" rx="10" fill="hsl(var(--primary))" opacity="0.9" />
+          <text x="50" y="48" fontSize="14" fill="white" fontWeight="bold" textAnchor="middle">SECRET</text>
+        </g>
+      )}
 
       {robotAction === 'peeking' && (
         <circle cx="33" cy="50" r="4" fill="hsl(var(--primary))" />
@@ -150,6 +192,60 @@ export const Login: React.FC = () => {
       )}
     </svg>
   );
+
+  const renderSecurityRobot = () => (
+    <svg width="65" height="75" viewBox="0 0 100 120" style={{ overflow: 'visible', filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.2))' }}>
+      {/* Antena do Robozinho com Símbolo Psi (Identidade Visual igual ao PsicoBot) */}
+      <line x1="50" y1="20" x2="50" y2="10" stroke="hsl(var(--primary))" strokeWidth="3" />
+      <g transform="translate(50, 6) scale(0.7)">
+        <path d="M -12 -10 Q -12 2 0 2 Q 12 2 12 -10" stroke="hsl(var(--primary))" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <line x1="0" y1="-14" x2="0" y2="8" stroke="hsl(var(--primary))" strokeWidth="4" strokeLinecap="round" />
+      </g>
+
+      {/* Rosto Quadrado de Robozinho (Igual ao PsicoBot) */}
+      <rect x="15" y="20" width="70" height="70" rx="15" fill="hsl(var(--bg-card))" stroke="hsl(var(--primary))" strokeWidth="4" />
+
+      {/* Parafusos nos cantos */}
+      <circle cx="25" cy="30" r="2" fill="hsl(var(--primary))" opacity="0.5" />
+      <circle cx="75" cy="30" r="2" fill="hsl(var(--primary))" opacity="0.5" />
+      <circle cx="25" cy="80" r="2" fill="hsl(var(--primary))" opacity="0.5" />
+      <circle cx="75" cy="80" r="2" fill="hsl(var(--primary))" opacity="0.5" />
+
+      {/* Óculos Redondos (Identidade Visual) */}
+      <circle cx="33" cy="55" r="14" fill="transparent" stroke="hsl(var(--text-main))" strokeWidth="2.5" />
+      <circle cx="67" cy="55" r="14" fill="transparent" stroke="hsl(var(--text-main))" strokeWidth="2.5" />
+      <line x1="47" y1="55" x2="53" y2="55" stroke="hsl(var(--text-main))" strokeWidth="2.5" />
+
+      {/* Sobrancelhas Zangadas (Angry Protective Look) */}
+      <line x1="22" y1="42" x2="42" y2="50" stroke="hsl(var(--primary))" strokeWidth="4" strokeLinecap="round" />
+      <line x1="78" y1="42" x2="58" y2="50" stroke="hsl(var(--primary))" strokeWidth="4" strokeLinecap="round" />
+
+      {/* Olhinhos focados */}
+      <circle cx="33" cy="55" r="3" fill="hsl(var(--primary))" />
+      <circle cx="67" cy="55" r="3" fill="hsl(var(--primary))" />
+
+      {/* Pernas de Segurança (Mais Grossas, Firmes e Quadradas) */}
+      <g className="walking-legs" style={{ transformOrigin: '50% 90px' }}>
+        {/* Perna Esquerda */}
+        <g>
+          <rect x="30" y="90" width="12" height="20" fill="hsl(var(--primary))" />
+          <rect x="25" y="106" width="20" height="6" fill="hsl(var(--primary))" />
+        </g>
+        {/* Perna Direita */}
+        <g>
+          <rect x="58" y="90" width="12" height="20" fill="hsl(var(--primary))" />
+          <rect x="55" y="106" width="20" height="6" fill="hsl(var(--primary))" />
+        </g>
+      </g>
+
+      {/* Braços puxando a proteção de segurança */}
+      <g style={{ animation: 'pullArms 0.5s infinite alternate' }}>
+        <path d="M 15 60 Q -20 60 -30 90" stroke="hsl(var(--primary))" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <rect x="-45" y="85" width="90" height="25" rx="8" fill="hsl(var(--primary))" />
+        <text x="0" y="102" fontSize="9" fill="white" fontWeight="bold" textAnchor="middle">SECURITY</text>
+      </g>
+    </svg>
+  );
   const navigate = useNavigate();
   const { session } = useAuth();
 
@@ -158,6 +254,53 @@ export const Login: React.FC = () => {
       navigate('/dashboard');
     }
   }, [session, navigate]);
+
+  // Lógica de Sono por Inatividade (3 segundos)
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    const resetTimer = () => {
+      setIsSleeping(false);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        // Só dorme se não estiver focando ou carregando
+        if (!focusedField && !loading && !showPassword) {
+          setIsSleeping(true);
+        }
+      }, 3000);
+    };
+
+    const activities = ['mousemove', 'keydown', 'mousedown', 'touchstart', 'scroll'];
+    activities.forEach(event => window.addEventListener(event, resetTimer));
+
+    resetTimer();
+
+    return () => {
+      activities.forEach(event => window.removeEventListener(event, resetTimer));
+      clearTimeout(timeout);
+    };
+  }, [focusedField, loading, showPassword]);
+
+  // Lógica de Cobrir Senha (2 segundos exposta)
+  useEffect(() => {
+    let timeout: NodeJS.Timeout;
+    if (showPassword && !isCovering) {
+      timeout = setTimeout(() => {
+        setIsCovering(true);
+
+        // O Security Robot aparece, corre até o campo (1s) e puxa a senha (0.5s)
+        setTimeout(() => {
+          setShowPassword(false);
+        }, 1500);
+
+        // Ele vai embora ou some
+        setTimeout(() => {
+          setIsCovering(false);
+          toast.info("Segurança reforçada: ocultamos sua senha para sua proteção.");
+        }, 3500);
+      }, 2000);
+    }
+    return () => clearTimeout(timeout);
+  }, [showPassword, isCovering]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,7 +336,7 @@ export const Login: React.FC = () => {
       toast.error('Por favor, insira seu e-mail.');
       return;
     }
-    
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
         redirectTo: window.location.origin + '/reset-password',
@@ -211,14 +354,14 @@ export const Login: React.FC = () => {
       toast.error('Informe seu e-mail para que o admin te identifique.');
       return;
     }
-    
+
     try {
       // Usamos uma RPC (Functions) do banco para contornar restrições de RLS 
       // pois o usuário ainda não está logado aqui.
       const { error } = await supabase.rpc('solicitacao_reset_admin', { target_email: forgotEmail });
-      
+
       if (error) throw error;
-      
+
       toast.info('Solicitação enviada ao administrador!');
       setShowForgotModal(false);
     } catch (err: any) {
@@ -246,16 +389,17 @@ export const Login: React.FC = () => {
 
       <div className="auth-form-container glass-card" style={{ position: 'relative' }}>
 
-        {/* Robozinho Interativo */}
+        {/* Robozinho Interativo (PsicoBot fixo no topo) */}
         <div style={{
-          position: 'absolute', top: '-65px', right: '15px', zIndex: 10,
+          position: 'absolute',
+          top: '-65px',
+          right: '15px',
+          zIndex: 10,
           display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
-          animation: 'floatRobot 3s infinite ease-in-out',
+          animation: !isSleeping ? 'floatRobot 3s infinite ease-in-out' : 'none',
           transition: 'all 0.3s'
         }}>
           <style>{`
-            @keyframes floatRobot {
-              0%, 100% { transform: translateY(0); }
               50% { transform: translateY(-5px); }
             }
             @keyframes subtleWaveLeft {
@@ -265,6 +409,35 @@ export const Login: React.FC = () => {
             @keyframes subtleWaveRight {
               0%, 100% { transform: translate(87px, 45px) rotate(0deg); }
               50% { transform: translate(87px, 42px) rotate(0deg); }
+            }
+            @keyframes zzz-float {
+              0% { transform: translateY(0) scale(1); opacity: 0; }
+              50% { opacity: 1; }
+              100% { transform: translateY(-20px) scale(1.5); opacity: 0; }
+            }
+            .zzz-animation text {
+              animation: zzz-float 3s infinite;
+            }
+            .zzz-animation text:nth-child(2) { animation-delay: 1s; }
+            .zzz-animation text:nth-child(3) { animation-delay: 2s; }
+
+            @keyframes securiBotRun {
+              0% { transform: translateX(150px); opacity: 0; }
+              20% { transform: translateX(0); opacity: 1; }
+              80% { transform: translateX(0); opacity: 1; }
+              100% { transform: translateX(150px); opacity: 0; }
+            }
+            @keyframes walkingLegs {
+              0%, 100% { transform: rotate(0); }
+              50% { transform: rotate(10deg); }
+            }
+            .walking-legs {
+              transform-origin: 50% 70%;
+              animation: walkingLegs 0.2s infinite ease-in-out;
+            }
+            @keyframes pullArms {
+              from { transform: translateY(0); }
+              to { transform: translateY(-5px); }
             }
             .custom-checkbox-container {
               display: flex;
@@ -346,6 +519,20 @@ export const Login: React.FC = () => {
           <div className="input-group">
             <label className="input-label" htmlFor="password">Senha</label>
             <div style={{ position: 'relative' }}>
+              {/* SecuriBot (O robô de guarda com pernas) */}
+              {isCovering && (
+                <div style={{
+                  position: 'absolute',
+                  right: '-80px',
+                  top: '-15px',
+                  zIndex: 200,
+                  pointerEvents: 'none'
+                }}>
+                  <div style={{ animation: 'securiBotRun 3.5s ease-in-out forwards' }}>
+                    {renderSecurityRobot()}
+                  </div>
+                </div>
+              )}
               <input
                 className="form-input"
                 type={showPassword ? "text" : "password"}
@@ -388,8 +575,8 @@ export const Login: React.FC = () => {
               </div>
               Manter conectado
             </label>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={() => {
                 setForgotEmail(email);
                 setShowForgotModal(true);
@@ -425,9 +612,9 @@ export const Login: React.FC = () => {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 1000, padding: '20px'
         }}>
-          <div className="glass-card" style={{ 
-            width: '100%', maxWidth: '400px', position: 'relative', 
-            padding: '2rem', animation: 'modalEntry 0.3s ease-out' 
+          <div className="glass-card" style={{
+            width: '100%', maxWidth: '400px', position: 'relative',
+            padding: '2rem', animation: 'modalEntry 0.3s ease-out'
           }}>
             <style>{`
               @keyframes modalEntry {
@@ -435,55 +622,55 @@ export const Login: React.FC = () => {
                 to { opacity: 1; transform: scale(1) translateY(0); }
               }
             `}</style>
-            <button 
+            <button
               onClick={() => setShowForgotModal(false)}
               style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'hsl(var(--text-muted))' }}
             >
               <X size={20} />
             </button>
-            
+
             <h2 style={{ marginBottom: '0.5rem', color: 'hsl(var(--text-main))', fontSize: '1.5rem' }}>Recuperar Acesso</h2>
             <p style={{ color: 'hsl(var(--text-muted))', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
               Selecione o método de redefinição desejado.
             </p>
 
             <div className="input-group">
-               <label className="input-label">E-mail da Conta</label>
-               <input 
-                 className="form-input"
-                 type="email" 
-                 value={forgotEmail} 
-                 onChange={(e) => setForgotEmail(e.target.value)}
-                 placeholder="Digite seu e-mail"
-               />
+              <label className="input-label">E-mail da Conta</label>
+              <input
+                className="form-input"
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                placeholder="Digite seu e-mail"
+              />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginTop: '1.5rem' }}>
-               <button 
-                 onClick={handleResetByEmail}
-                 className="btn" 
-                 style={{ 
-                   background: 'hsl(var(--primary))', color: 'white', 
-                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                   padding: '12px'
-                 }}
-               >
-                 <Mail size={18} />
-                 Receber E-mail
-               </button>
-               
-               <button 
-                 onClick={handleResetByAdmin}
-                 className="btn" 
-                 style={{ 
-                   background: 'transparent', border: '1px solid hsl(var(--primary))', color: 'hsl(var(--primary))',
-                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                   padding: '12px'
-                 }}
-               >
-                 <ShieldCheck size={18} />
-                 Solicitar suporte Admin
-               </button>
+              <button
+                onClick={handleResetByEmail}
+                className="btn"
+                style={{
+                  background: 'hsl(var(--primary))', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  padding: '12px'
+                }}
+              >
+                <Mail size={18} />
+                Receber E-mail
+              </button>
+
+              <button
+                onClick={handleResetByAdmin}
+                className="btn"
+                style={{
+                  background: 'transparent', border: '1px solid hsl(var(--primary))', color: 'hsl(var(--primary))',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  padding: '12px'
+                }}
+              >
+                <ShieldCheck size={18} />
+                Solicitar suporte Admin
+              </button>
             </div>
           </div>
         </div>

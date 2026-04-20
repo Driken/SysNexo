@@ -22,7 +22,7 @@ export const UserForm: React.FC<Props> = ({
   const [cpf, setCpf] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [cartaoSus, setCartaoSus] = useState('');
-  const [role, setRole] = useState<'admin' | 'recepcao' | 'psicologo' | 'paciente'>('recepcao');
+  const [role, setRole] = useState<'admin' | 'recepcao' | 'psicologo' | 'paciente' | ''>('');
   const [loading, setLoading] = useState(false);
 
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
@@ -49,7 +49,7 @@ export const UserForm: React.FC<Props> = ({
       setPassword('');
       setDataNascimento('');
       setCartaoSus('');
-      setRole('recepcao');
+      setRole('');
     }
     setIsResetting(false);
     setNewPass('');
@@ -100,7 +100,14 @@ export const UserForm: React.FC<Props> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isResetting) return;
+
+    if (!role) {
+      toast.error('Por favor, selecione um cargo antes de prosseguir.');
+      return;
+    }
+
     setLoading(true);
+    const loadingToast = toast.loading(userToEdit ? 'Atualizando dados...' : 'Processando cadastro...');
 
     if (userToEdit) {
       if (userToEdit.role === 'paciente') {
@@ -116,8 +123,10 @@ export const UserForm: React.FC<Props> = ({
 
         setLoading(false);
         if (error) {
+          toast.dismiss(loadingToast);
           toast.error(`Erro ao atualizar paciente: ${error.message}`);
         } else {
+          toast.dismiss(loadingToast);
           toast.success('Paciente atualizado com sucesso!');
           onSave();
         }
@@ -136,31 +145,53 @@ export const UserForm: React.FC<Props> = ({
 
       setLoading(false);
       if (error) {
+        toast.dismiss(loadingToast);
         toast.error(`Erro ao atualizar: ${error.message}`);
       } else {
+        toast.dismiss(loadingToast);
         toast.success('Usuário atualizado com sucesso!');
         onSave();
       }
     } else {
       // Usar a Edge Function para criar o usuário sem deslogar o admin atual
-      const { data, error: functionError } = await supabase.functions.invoke('admin-create-user', {
-        body: {
+      console.log('Iniciando cadastro via Edge Function...');
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Sessão expirada. Por favor, faça login novamente.');
+        setLoading(false);
+        return;
+      }
+
+      // Chamada direta via fetch passando o token de usuário em um header customizado (X-User-Token)
+      // para evitar que o API Gateway do Supabase bloqueie a requisição se o token usar um algoritmo diferente
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'X-User-Token': session.access_token
+        },
+        body: JSON.stringify({
           email,
           password,
           full_name: fullName,
           role,
           cpf
-        }
+        })
       });
 
+      const data = await response.json();
       setLoading(false);
+      toast.dismiss(loadingToast);
 
-      if (functionError) {
-        toast.error(`Erro na função: ${functionError.message}`);
-      } else if (data?.error) {
-        toast.error(`Erro ao cadastrar: ${data.error}`);
+      if (!response.ok) {
+        console.error('Erro na resposta da função:', data);
+        toast.error(`Erro ao cadastrar: ${data.error || 'Erro inesperado'}`);
       } else {
-        toast.success('Usuário cadastrado com sucesso! O acesso está liberado.');
+        toast.success('Usuário cadastrado com sucesso!');
         onSave();
       }
     }
@@ -259,7 +290,9 @@ export const UserForm: React.FC<Props> = ({
                     fontSize: '0.9rem'
                   }}
                 >
-                  <span style={{ textTransform: 'capitalize' }}>{role}</span>
+                  <span style={{ textTransform: role ? 'capitalize' : 'none' }}>
+                    {role || 'Selecione um cargo...'}
+                  </span>
                   {isRoleDropdownOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                 </button>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { UserPlus, Users, Shield, CheckCircle, Info, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { UserPlus, Users, Search, ArrowUp, ArrowDown, ArrowUpDown, AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UsuariosModal } from '../components/UsuariosModal';
 import { toast } from 'sonner';
@@ -14,6 +14,10 @@ export const Usuarios: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'role'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  // Estado para Modal de Confirmação de Exclusão Customizado
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleSort = (field: 'name' | 'email' | 'role') => {
     if (sortBy === field) {
@@ -66,56 +70,35 @@ export const Usuarios: React.FC = () => {
     }
   };
 
-  const handleExcluir = async (user: any) => {
-    if (window.confirm(`ATENÇÃO: Deseja REALMENTE excluir o perfil de ${user.full_name}? Esta ação não pode ser desfeita.`)) {
-
-      const { error } = await supabase.rpc('admin_delete_user', { target_user_id: user.id });
-
-      if (error) {
-        if (error.code === '23503') {
-          toast.error('Não é possível excluir pois existem registros (atendimentos, prontuários ou agendamentos) vinculados a este perfil.');
-        } else {
-          toast.error('Erro ao excluir: ' + error.message);
-        }
-      } else {
-        toast.success(`Perfil excluído com sucesso!`);
-
-        // Atualização Otimista (remove da tela na hora)
-        setEquipe(prev => prev.filter(m => m.id !== user.id));
-
-        carregarEquipe();
-
-        // Limpa seleção e fecha modais se estiverem abertos
-        setSelectedUser(null);
-        setIsModalOpen(false);
-      }
-    }
+  // Abre o modal customizado em vez do confirm do navegador
+  const promptExcluir = (user: any) => {
+    setUserToDelete(user);
   };
 
+  // Executa a exclusão de fato
+  const confirmExcluir = async () => {
+    if (!userToDelete) return;
+    setIsDeleting(true);
 
-  const rolesInfo = [
-    {
-      id: 'admin',
-      label: 'Administrador Geral',
-      desc: 'Acesso total ao sistema, gestão de faturamento e usuários.',
-      color: '#fee2e2',
-      textColor: '#b91c1c'
-    },
-    {
-      id: 'psicologo',
-      label: 'Psicólogo Clínico',
-      desc: 'Acesso aos prontuários, lista de espera e agenda própria.',
-      color: '#e0e7ff',
-      textColor: '#4338ca'
-    },
-    {
-      id: 'recepcao',
-      label: 'Recepção / Atendimento',
-      desc: 'Agendamentos, cadastro de pacientes e triagem inicial.',
-      color: '#dcfce7',
-      textColor: '#15803d'
-    },
-  ];
+    const { error } = await supabase.rpc('admin_delete_user', { target_user_id: userToDelete.id });
+
+    if (error) {
+      if (error.code === '23503') {
+        toast.error('Não é possível excluir pois existem registros vinculados a este perfil.');
+      } else {
+        toast.error('Erro ao excluir: ' + error.message);
+      }
+    } else {
+      toast.success(`Perfil excluído com sucesso!`);
+      setEquipe(prev => prev.filter(m => m.id !== userToDelete.id));
+      carregarEquipe();
+      setSelectedUser(null);
+      setIsModalOpen(false);
+    }
+    
+    setIsDeleting(false);
+    setUserToDelete(null);
+  };
 
   return (
     <div className="layout-body" style={{ animation: 'fadeIn 0.4s ease-out' }}>
@@ -124,7 +107,7 @@ export const Usuarios: React.FC = () => {
           <h1 className="dashboard-title flex-row">
             <Users size={28} /> Gestão de Equipe
           </h1>
-          <p className="text-muted">Visualize e gerencie todos os acessos do sistema.</p>
+          <p className="text-muted">Visualize e adicione novos usuários ao sistema.</p>
         </div>
 
         <button className="btn btn-primary" onClick={handleCreate} style={{ width: 'auto' }}>
@@ -133,9 +116,8 @@ export const Usuarios: React.FC = () => {
       </div>
 
       <div className="flex-row" style={{ alignItems: 'stretch', gap: '2rem', flexWrap: 'wrap' }}>
-
-        {/* Lado Esquerdo: Lista */}
-        <div style={{ flex: '1 1 600px' }}>
+        {/* Lista de Usuários que agora ocupa 100% (Info de Níveis removido) */}
+        <div style={{ flex: '1 1 100%' }}>
           <div className="glass-card" style={{
             padding: '0.5rem', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem',
             flexWrap: 'wrap', alignItems: 'center', background: 'hsla(var(--bg-main), 0.6)',
@@ -217,7 +199,6 @@ export const Usuarios: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {[...equipe]
                 .filter(u => {
-                  // Primeiro: Filtro de Hierarquia (Admin vê tudo, outros veem par)
                   let accessMatch = false;
                   if (profile?.role === 'admin') accessMatch = true;
                   else if (u.role === 'admin') accessMatch = false;
@@ -225,7 +206,6 @@ export const Usuarios: React.FC = () => {
 
                   if (!accessMatch) return false;
 
-                  // Segundo: Filtro de Pesquisa (Nome, Email)
                   const search = searchTerm.toLowerCase();
                   const searchMatch = !searchTerm ||
                     (u.full_name?.toLowerCase().includes(search)) ||
@@ -299,44 +279,12 @@ export const Usuarios: React.FC = () => {
               {equipe.length === 0 && (
                 <div className="text-center" style={{ padding: '4rem 1rem' }}>
                   <Users size={48} color="hsl(var(--border-light))" style={{ marginBottom: '1rem' }} />
-                  <p className="text-muted">Carregando lista de colaboradores...</p>
+                  <p className="text-muted">Nenhum colaborador encontrado...</p>
                 </div>
               )}
             </div>
           </div>
         </div>
-
-        {/* Lado Direito: Info de Níveis */}
-        <div style={{ flex: '1 1 350px' }}>
-          <div className="glass-card" style={{ padding: '1.5rem', background: 'hsla(var(--primary), 0.02)' }}>
-            <h3 style={{ fontSize: '1.1rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Shield size={20} color="hsl(var(--primary))" /> Níveis de Acesso
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {rolesInfo.map(r => (
-                <div key={r.id} style={{ display: 'flex', gap: '1rem' }}>
-                  <div style={{ marginTop: '0.2rem' }}>
-                    <CheckCircle size={18} color={r.textColor} />
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, color: r.textColor, fontSize: '0.9rem', marginBottom: '0.25rem' }}>{r.label}</div>
-                    <p style={{ fontSize: '0.8rem', color: 'hsl(var(--text-muted))', lineHeight: 1.4 }}>{r.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ marginTop: '2rem', padding: '1rem', borderRadius: 'var(--radius-sm)', background: 'white', border: '1px dashed hsl(var(--border-light))' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', color: 'hsl(var(--text-main))', fontWeight: 600, fontSize: '0.85rem' }}>
-                <Info size={16} /> Dica de Segurança
-              </div>
-              <p style={{ fontSize: '0.75rem', color: 'hsl(var(--text-muted))' }}>
-                Recomendamos que cada profissional tenha seu próprio acesso. Nunca compartilhe a senha de Administrador.
-              </p>
-            </div>
-          </div>
-        </div>
-
       </div>
 
       <UsuariosModal
@@ -346,9 +294,67 @@ export const Usuarios: React.FC = () => {
           carregarEquipe();
         }}
         userToEdit={selectedUser}
-        onDelete={handleExcluir}
+        onDelete={promptExcluir}
         onInactivate={handleInativar}
       />
+
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+      {userToDelete && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10000, animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div className="glass-card" style={{
+            width: '100%', maxWidth: '400px', margin: '1rem', padding: '0',
+            overflow: 'hidden', animation: 'slideUp 0.3s ease-out',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid hsl(var(--border-light))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fee2e2' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#b91c1c', fontWeight: 700 }}>
+                <AlertTriangle size={24} />
+                <span>Excluir Usuário?</span>
+              </div>
+              <button 
+                onClick={() => setUserToDelete(null)} 
+                style={{ background: 'transparent', border: 'none', color: '#b91c1c', cursor: 'pointer', padding: '0.25rem' }}
+                disabled={isDeleting}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div style={{ padding: '1.5rem' }}>
+              <p style={{ margin: '0 0 1rem 0', color: 'hsl(var(--text-main))', lineHeight: 1.5 }}>
+                Você está prestes a excluir permanentemente o perfil de <strong>{userToDelete.full_name}</strong>.
+              </p>
+              <p style={{ margin: 0, color: 'hsl(var(--text-muted))', fontSize: '0.85rem' }}>
+                Esta ação não pode ser desfeita.
+              </p>
+            </div>
+
+            <div style={{ padding: '1.25rem', background: 'hsla(var(--primary), 0.02)', borderTop: '1px solid hsl(var(--border-light))', display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setUserToDelete(null)}
+                disabled={isDeleting}
+                style={{ width: 'auto', minWidth: '100px' }}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn btn-primary" 
+                onClick={confirmExcluir}
+                disabled={isDeleting}
+                style={{ background: '#ef4444', borderColor: '#dc2626', width: 'auto', minWidth: '100px' }}
+              >
+                {isDeleting ? 'Excluindo...' : 'Sim, Excluir'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

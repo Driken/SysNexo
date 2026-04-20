@@ -31,20 +31,13 @@ const smartStorage = {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: smartStorage,
+    storageKey: 'sistema-psi-auth-token',
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true
   }
 });
 
-// Cliente secundário para cadastro de usuários (não substitui a sessão do admin logado)
-export const supabaseAdminAuth = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-    detectSessionInUrl: false
-  }
-});
 export type UserRole = 'admin' | 'recepcao' | 'psicologo';
 
 export interface Profile {
